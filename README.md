@@ -2,6 +2,7 @@
 
 # Setup
 
+Copy / paste this as one block, and everything should run:
 ```
 git clone git@github.com:sgrove/netligraph.git
 cd netligraph
@@ -9,6 +10,8 @@ npm i
 echo "ONEGRAPH_APP_ID=759b23db-c990-4426-b8e1-a4034e72c1ca" > .env
 netlify dev
 ```
+
+**NB**: You should have `netlify-cli` installed at `netlify-cli/3.38.10` or higher
 
 # Configuration
 
@@ -37,3 +40,7 @@ implementation, not a permanent architecture decision.
 It takes a few seconds to prune the graph in JavaScript (which is then cached to the local filesystem),
 but I wanted to keep the POC as self-contained as possible. In a real deployment this
 would be done on OneGraph's side.
+
+## Detect disabled APIs at query time in GraphiQL
+We can easy detect when a query into a disabled service is made, and prompt the user to enable it with one
+click inline, so the experience of sharing/trying queries would be quite seamless.

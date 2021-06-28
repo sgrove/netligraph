@@ -64,32 +64,11 @@ async function fetcher(auth: any, params: GraphQLRequest) {
 
 const DEFAULT_QUERY = `# shift-option/alt-click on a query below to jump to it in the explorer
 # option/alt-click on a field in the explorer to select all subfields
-query npmPackage($name: String = "onegraph-apollo-client", $amount: Int!, $precision: Float!, $checkValid: Boolean) {
+
+# Be sure to enable the npm and GitHub integrations for this query
+query npmPackage($name: String!) {
   npm {
     package(name: $name) {
-      name
-      homepage
-      downloads {
-        lastMonth {
-          count
-        }
-      }
-      repository {
-        sourceRepository {
-          ... on GitHubRepository {
-            id
-            name
-            description
-          }
-        }
-      }
-    }
-  }
-}
-
-query graphQLPackage {
-  npm {
-    package(name: "graphql") {
       name
       homepage
       downloads {

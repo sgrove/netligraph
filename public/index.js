@@ -13,6 +13,14 @@ window.demoAuth = new OneGraphAuth({
   appId: process.env.ONEGRAPH_APP_ID,
 })
 
+// @ts-ignore: dev demo
+window.demoAuthReload = () => {
+  // @ts-ignore: dev demo
+  window.demoAuth = new OneGraphAuth({
+    appId: process.env.ONEGRAPH_APP_ID,
+  })
+}
+
 function App() {
   const [state, setState] = useState(() => {
     return { view: 'catalog' }

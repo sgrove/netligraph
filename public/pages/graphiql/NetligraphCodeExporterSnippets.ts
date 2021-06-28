@@ -331,13 +331,14 @@ ${variables}
       const clientAuth = useClientAuth
         ? `,
       headers: {
-        ...oneGraphAuth.authHeaders()
+        ...oneGraphAuth?.authHeaders()
       }`
         : ''
 
       return `async function ${operationFunctionName(namedOperationData)}(${
         useClientAuth ? 'oneGraphAuth, ' : ''
-      }{${params.join(', ')}}) {
+      }params) {
+  const {${params.join(', ')}} = params || {};
   const resp = await fetch("/.netlify/functions/${namedOperationData.name}",
     {
       method: "${pluckerStyle.toLocaleUpperCase()}",

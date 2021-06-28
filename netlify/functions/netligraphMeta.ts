@@ -65,6 +65,14 @@ function pruneSchema(
           fieldConfig: GraphQLFieldConfig<any, any>
         ) => {
           const namedType = getNamedType(fieldConfig.type)
+
+          // Include at least one field per root object.
+          // Not necessary for the final version, but fine for the
+          // proof of concept
+          if (['poll', 'testMutate', 'oneGraph'].includes(fieldName)) {
+            return true
+          }
+
           const include =
             namedType && shouldRetainNamed(enabledServices, namedType)
 

@@ -1,4 +1,3 @@
-import React from 'react'
 import ReactDOM from 'react-dom'
 import Home from './pages/home/index'
 // import NotFound from './pages/_404'
@@ -13,7 +12,7 @@ window.demoAuth = new OneGraphAuth({
   appId: process.env.ONEGRAPH_APP_ID,
 })
 
-export default function App() {
+function App() {
   const [state, setState] = useState(() => {
     return { view: 'catalog' }
   })
@@ -664,5 +663,3 @@ export default function App() {
 }
 
 ReactDOM.render(<App />, document.querySelector('#app-root'))
-
-// alert('Hi!')

@@ -95,7 +95,7 @@ export const handler = withGraph(async (event, { netligraph }) => {
     (service) => service.toLocaleLowerCase().replace(/\W|_|-/g, '')
   )
 
-  const cachedFile = `cache_schema_${enabledServices.join('_')}.sdl`
+  const cachedFile = `tmp/cache_schema_${enabledServices.join('_')}.sdl`
 
   let schema: string
 

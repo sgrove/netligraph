@@ -7,3 +7,8 @@ framework="#custom"
 command="npm start"
 targetPort=1234
 autoLaunch=false
+
+[[redirects]]
+from="/graph"
+to="/.netlify/functions/proxyNetligraph"
+status=200

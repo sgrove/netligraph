@@ -1,7 +1,3 @@
-function capitalize(s: string) {
-  return s[0].toUpperCase() + s.slice(1)
-}
-
 const ServiceLookup = {
   adroll: ['adroll.com', 'Adroll'],
   asana: ['asana.com', 'Asana'],
@@ -78,17 +74,17 @@ export const serviceImageUrl = (service: Keys, size = 25) => {
   return `//logo.clearbit.com/${lookup[0]}?size=${size}`
 }
 
+// Uses a persisted query to get a list of all supported services
+// (OAuth and non-OAuth alike). Can be removed in the final version
+// in favor of something more concrete.
 export const fetchAllServices = async () => {
-  const resp = await fetch(
-    'https://serve.onegraph.com/graphql?app_id=759b23db-c990-4426-b8e1-a4034e72c1ca',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        doc_id: '1879e711-32b7-4873-9d20-38e13f3dd011',
-        operationName: 'ServiceList',
-      }),
-    }
-  )
+  const resp = await fetch('/graph', {
+    method: 'POST',
+    body: JSON.stringify({
+      doc_id: '1879e711-32b7-4873-9d20-38e13f3dd011',
+      operationName: 'ServiceList',
+    }),
+  })
   const text = await resp.text()
   const json = JSON.parse(text)
   return json.data.query.fields.map((field: any) => field.name)

@@ -7,11 +7,11 @@ import {
 } from '@netlify/functions'
 import { Database, makeClient, Netligraph, readDatabase } from './netligraph'
 
-export interface Context extends HandlerContext {
+interface Context extends HandlerContext {
   netligraph?: Netligraph
 }
 
-export interface Handler {
+interface Handler {
   (event: HandlerEvent, context: Context, callback: HandlerCallback):
     | void
     | HandlerResponse

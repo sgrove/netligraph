@@ -21,9 +21,9 @@ import {
   print,
 } from 'graphql'
 
-export type Variables = { [key: string]: any }
+type Variables = { [key: string]: any }
 
-export type OperationData = {
+type OperationData = {
   query: string
   name: string
   displayName: string
@@ -34,11 +34,11 @@ export type OperationData = {
   fragmentDependencies: Array<FragmentDefinitionNode>
 }
 
-export type OptionValues = { [id: string]: boolean }
+type OptionValues = { [id: string]: boolean }
 
-export type Options = Array<{ id: string; label: string; initial: boolean }>
+type Options = Array<{ id: string; label: string; initial: boolean }>
 
-export type GenerateOptions = {
+type GenerateOptions = {
   serverUrl: string
   headers: { [name: string]: string }
   context: Object
@@ -46,7 +46,7 @@ export type GenerateOptions = {
   options: OptionValues
 }
 
-export type Snippet = {
+type Snippet = {
   options: Options
   language: string
   codeMirrorMode: string

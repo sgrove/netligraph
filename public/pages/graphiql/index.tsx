@@ -40,17 +40,14 @@ async function fetchSchema() {
 }
 
 async function fetcher(params: GraphQLRequest) {
-  const response = await fetch(
-    'https://serve.onegraph.com/graphql?app_id=759b23db-c990-4426-b8e1-a4034e72c1ca',
-    {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(params),
-    }
-  )
+  const response = await fetch('/graph', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  })
   const responseBody = await response.text()
 
   try {
@@ -228,7 +225,7 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
     <CodeExporter
       hideCodeExporter={_handleToggleCodeExporter}
       snippets={[netlifyFunctionSnippet]}
-      // serverUrl={serverUrl}
+      serverUrl={'/graph'}
       context={{
         appId: '/* APP_ID */',
       }}

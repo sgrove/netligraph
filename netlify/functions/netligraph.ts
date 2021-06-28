@@ -5,6 +5,7 @@ import * as fs from 'fs'
  * Simulate the values that Netlify would store in a full integration:
  * 1. List of enabled services
  * 2. OneGraph access token
+ * 3. Services accessible via the access token we have
  */
 
 export type Database = {
@@ -13,13 +14,15 @@ export type Database = {
   loggedInServices: Array<string>
 }
 
+const databaseFilename = 'tmp/database.json'
+
 export const writeDatabase = (fullDatabase: Database) => {
-  fs.writeFileSync('tempDatabase.json', JSON.stringify(fullDatabase, null, 2))
+  fs.writeFileSync(databaseFilename, JSON.stringify(fullDatabase, null, 2))
 }
 
 export const readDatabase = (): Database => {
   try {
-    const database = fs.readFileSync('tempDatabase.json').toString()
+    const database = fs.readFileSync(databaseFilename).toString()
     return JSON.parse(database)
   } catch {
     return {
@@ -96,7 +99,7 @@ interface GitHubDisabledClient {
 
 type GitHubClient = GitHubEnabledClient | GitHubDisabledClient
 
-export type GraphQLResponse = {
+type GraphQLResponse = {
   data: any
   errors: Array<any>
 }
@@ -122,7 +125,7 @@ export type Netligraph = {
   accessToken: string | null
 }
 
-export type MakeClientProps = {
+type MakeClientProps = {
   appId: string
   accessToken: string | null
 }
@@ -138,8 +141,6 @@ export async function fetchOneGraph({
     variables: variables,
     operationName: operationName,
   }
-
-  console.log('\tUsing accessToken', accessToken)
 
   const result = await fetch(
     `https://serve.onegraph.com/graphql?app_id=${process.env.ONEGRAPH_APP_ID}`,

@@ -9,6 +9,8 @@ import {
   serviceId,
   APIService,
   OAuthService,
+  fetchIntegrationStatus,
+  setIntegrationStatus,
 } from '../../frontendHelpers'
 
 const ONEGRAPH_APP_ID = process.env.ONEGRAPH_APP_ID
@@ -17,21 +19,6 @@ export type Database = {
   accessToken: string | null
   manuallyEnabledServices: Array<string>
   loggedInServices: Array<string>
-}
-
-const fetchIntegrationStatus = async (): Promise<Database> => {
-  const resp = await fetch('/.netlify/functions/integrationStatus')
-  const text = await resp.text()
-  return JSON.parse(text)
-}
-
-const setIntegrationStatus = async (database: Database) => {
-  const resp = await fetch('/.netlify/functions/updateIntegrations', {
-    method: 'POST',
-    body: JSON.stringify(database),
-  })
-  const text = await resp.text()
-  return JSON.parse(text)
 }
 
 const blocklist = new Set([
@@ -77,18 +64,16 @@ const OAuthServiceEntry = ({
 }: OAuthServiceEntryProps) => {
   return (
     <>
-      <a href="/graphiql">
-        <img
-          alt={`${service.service} Logomark`}
-          // @ts-ignore: Safe
-          src={serviceImageUrl(service.service)}
-          style={{
-            width: '50px',
-            borderRadius: '6px',
-            marginRight: '6px',
-          }}
-        />
-      </a>
+      <img
+        alt={`${service.service} Logomark`}
+        // @ts-ignore: Safe
+        src={serviceImageUrl(service.service)}
+        style={{
+          width: '50px',
+          borderRadius: '6px',
+          marginRight: '6px',
+        }}
+      />
       <div style={{ flexGrow: 1 }}>
         <h3>
           <a>{service.friendlyServiceName} API</a>
@@ -157,18 +142,16 @@ const ServiceEntry = ({
 }: ServiceEntryProps) => {
   return (
     <>
-      <a href="/graphiql">
-        <img
-          alt={`${service.service} Logomark`}
-          // @ts-ignore: Safe
-          src={serviceImageUrl(service.service)}
-          style={{
-            width: '50px',
-            borderRadius: '6px',
-            marginRight: '6px',
-          }}
-        />
-      </a>
+      <img
+        alt={`${service.service} Logomark`}
+        // @ts-ignore: Safe
+        src={serviceImageUrl(service.service)}
+        style={{
+          width: '50px',
+          borderRadius: '6px',
+          marginRight: '6px',
+        }}
+      />
       <div style={{ flexGrow: 1 }}>
         <h3>
           <a>{service.service} API</a>
@@ -320,12 +303,6 @@ export default function Home() {
     const serverDatabase = await setIntegrationStatus(newDatabase)
     setState((oldState) => ({ ...oldState, database: serverDatabase }))
   }
-
-  const dataURI = token
-    ? `data:text/plain;charset=utf-8,${encodeURIComponent(
-        `ONEGRAPH_TOKEN=${token}`
-      )}`
-    : null
 
   return (
     <>

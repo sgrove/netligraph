@@ -3,6 +3,8 @@ import styles from './style.module.css'
 import GraphiQL from 'graphiql'
 import 'graphiql/graphiql.css'
 // @ts-ignore: No typescript defs
+import OneGraphAuth from 'onegraph-auth'
+// @ts-ignore: No typescript defs
 import GraphiQLExplorer from 'graphiql-explorer'
 import React from 'react'
 import { parse, GraphQLSchema, buildASTSchema } from 'graphql'
@@ -12,6 +14,8 @@ import CodeExporter from '@sgrove/graphiql-code-exporter'
 import '@sgrove/graphiql-code-exporter/CodeExporter.css'
 // @ts-ignore: No typescript defs
 import { netlifyFunctionSnippet } from './NetligraphCodeExporterSnippets'
+import { Database } from '../home'
+import { fetchIntegrationStatus } from '../../frontendHelpers'
 
 type GraphQLRequest = {
   query: string
@@ -39,10 +43,11 @@ async function fetchSchema() {
   }
 }
 
-async function fetcher(params: GraphQLRequest) {
+async function fetcher(auth: any, params: GraphQLRequest) {
   const response = await fetch('/graph', {
     method: 'POST',
     headers: {
+      ...auth?.authHeaders(),
       Accept: 'application/json',
       'Content-Type': 'application/json',
     },
@@ -109,6 +114,7 @@ type GraphiQLState = {
   explorerIsOpen: boolean
   codeExporterIsOpen: boolean
   query: string
+  oneGraphAuth: any
 }
 
 type GraphiQLComponentProps = {
@@ -116,12 +122,29 @@ type GraphiQLComponentProps = {
   query: string
 }
 
+const oneGraphAuth = new OneGraphAuth({
+  appId: process.env.ONEGRAPH_APP_ID,
+})
+
 const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
   const [state, setState] = React.useState<GraphiQLState>({
     explorerIsOpen: false,
     codeExporterIsOpen: false,
     query: query,
+    oneGraphAuth: oneGraphAuth,
   })
+
+  React.useEffect(() => {
+    // Bit of a hacky way to force GraphiQL to use the logged-in auth already.
+    // Can be cleaned up in the next phase.
+    fetchIntegrationStatus().then((database: Database) => {
+      if (state.oneGraphAuth._accessToken) {
+        state.oneGraphAuth._accessToken.accessToken = database.accessToken
+      }
+
+      state.oneGraphAuth._accessToken = { accessToken: database.accessToken }
+    })
+  }, [])
 
   const _graphiql = React.useRef<GraphiQL>(null)
 
@@ -244,7 +267,7 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
       />
       <GraphiQL
         ref={_graphiql}
-        fetcher={fetcher}
+        fetcher={(params) => fetcher(state.oneGraphAuth, params)}
         schema={schema}
         query={state.query}
         onEditQuery={_handleEditQuery}

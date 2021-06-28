@@ -1,3 +1,5 @@
+import { Database } from './pages/home'
+
 const ServiceLookup = {
   adroll: ['adroll.com', 'Adroll'],
   asana: ['asana.com', 'Asana'],
@@ -128,4 +130,19 @@ export const combineAllServices = (
 
 export const serviceId = (service: APIService): string => {
   return service.service
+}
+
+export const fetchIntegrationStatus = async (): Promise<Database> => {
+  const resp = await fetch('/.netlify/functions/integrationStatus')
+  const text = await resp.text()
+  return JSON.parse(text)
+}
+
+export const setIntegrationStatus = async (database: Database) => {
+  const resp = await fetch('/.netlify/functions/updateIntegrations', {
+    method: 'POST',
+    body: JSON.stringify(database),
+  })
+  const text = await resp.text()
+  return JSON.parse(text)
 }

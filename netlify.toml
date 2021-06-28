@@ -5,4 +5,5 @@ publish="dist/"
 [dev]
 framework="#custom"
 command="npm start"
-targetPort=8080
+targetPort=1234
+autoLaunch=false

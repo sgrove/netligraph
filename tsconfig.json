@@ -1,25 +1,28 @@
 {
-	"compileOnSave": false,
-	"compilerOptions": {
-		"jsx": "preserve",
-		"jsxFactory": "preact.h",
-		"jsxFragmentFactory": "preact.Fragment",
-		"allowJs": true,
-		"checkJs": true,
-		// "strict": true,
-		"noEmit": true,
-		"moduleResolution": "node",
-		"target": "ESNext",
-		"module": "esnext",
-		"resolveJsonModule": true,
-		"allowSyntheticDefaultImports": true,
-		"downlevelIteration": true
-	},
-	"include": [
-		"node_modules/wmr/types.d.ts",
-		"**/*"
-	],
-	"typeAcquisition": {
-		"enable": true
-	}
+  "compileOnSave": false,
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "module": "CommonJS",
+    "target": "ES5",
+    "jsx": "react",
+    "moduleResolution": "Node",
+    "experimentalDecorators": true,
+    "skipDefaultLibCheck": true,
+    "sourceMap": true,
+    "allowJs": true,
+    "strict": true,
+    "lib": ["ESNext", "DOM"]
+  },
+  "include": [
+    "node_modules/wmr/types.d.ts",
+    "**/*",
+    "*.ts",
+    "netlify/functions/*"
+  ],
+  "exclude": ["dist/**/*"],
+  "typeAcquisition": {
+    "enable": true
+  }
 }

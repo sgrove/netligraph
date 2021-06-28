@@ -3,6 +3,9 @@ node_modules
 dist
 stats.html
 .env
+# Temp dev stuff
+tempDatabase.json
+cache_*.sdl
 
 # Local Netlify folder
 .netlify

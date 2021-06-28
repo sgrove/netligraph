@@ -103,17 +103,6 @@ query graphQLPackage {
       }
     }
   }
-}
-
-fragment bundlephobiaInfo on BundlephobiaDependencyInfo {
-  name
-  size
-  version
-  history {
-    dependencyCount
-    size
-    gzip
-  }
 }`
 
 type GraphiQLState = {

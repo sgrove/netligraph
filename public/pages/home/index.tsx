@@ -390,34 +390,6 @@ export default function Home() {
             )
           })}
       </ul>
-
-      {token && (
-        <>
-          <p>
-            <input value="ONEGRAPH_TOKEN" readOnly />
-            <input value={token} readOnly />
-          </p>
-          <p>
-            <input
-              value={`netlify env:set ONEGRAPH_TOKEN "${token}"`}
-              readOnly
-              style={{ minWidth: '50%', fontFamily: 'monospace' }}
-            />
-          </p>
-          <p>
-            Copy or download the token <em>after</em> logging-in to all required
-            services, as the token changes.{' '}
-          </p>
-          <p>
-            {
-              // @ts-ignore: Safe
-              <a href={dataURI} download="netlify.env">
-                Download .env file
-              </a>
-            }{' '}
-          </p>
-        </>
-      )}
     </>
   )
 }

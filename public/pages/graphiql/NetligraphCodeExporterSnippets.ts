@@ -360,7 +360,7 @@ ${variables}
 export const netlifyFunctionSnippet: Snippet = {
   language: 'JavaScript',
   codeMirrorMode: 'javascript',
-  name: 'fetch',
+  name: 'Netlify Function',
   options: snippetOptions,
   generate: (opts) => {
     const { serverUrl, headers, options } = opts
@@ -446,7 +446,7 @@ ${operationData.name}Data: ${operationData.name}Data`
       options.useClientAuth
     )
 
-    const snippet = `/**
+    const snippet = `/** Netlify serverless function:
 Save this snippet in \`netlify/functions/${filename}\`
 */
 import { withGraph } from './NetligraphHandler'
@@ -484,7 +484,10 @@ ${addLeftWhitespace(passThroughResults, 6)}
  * Call your Netlify function from the browser (after saving
  * the code to \`${filename}\`) with these helpers:
  */
+
+/**
 ${clientSideCalls}
+*/
 `
 
     return collapseExtraNewlines(snippet.trim())

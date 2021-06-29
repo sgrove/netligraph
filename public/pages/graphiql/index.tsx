@@ -15,7 +15,10 @@ import '@sgrove/graphiql-code-exporter/CodeExporter.css'
 // @ts-ignore: No typescript defs
 import { netlifyFunctionSnippet } from './NetligraphCodeExporterSnippets'
 import { Database } from '../home'
-import { fetchIntegrationStatus } from '../../frontendHelpers'
+import {
+  fetchIntegrationStatus,
+  saveNetlifyFunctions,
+} from '../../frontendHelpers'
 
 type GraphQLRequest = {
   query: string
@@ -108,7 +111,7 @@ const oneGraphAuth = new OneGraphAuth({
 const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
   const [state, setState] = React.useState<GraphiQLState>({
     explorerIsOpen: false,
-    codeExporterIsOpen: false,
+    codeExporterIsOpen: true,
     query: query,
     oneGraphAuth: oneGraphAuth,
   })
@@ -229,6 +232,46 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
     />
   ) : null
 
+  // Another hack to make the demo even slicker
+  const _handleSaveNetlifyFunctions = async () => {
+    const codeMirror = document.querySelector(
+      '.graphiql-code-exporter .CodeMirror'
+    )
+    if (!codeMirror) {
+      return
+    }
+
+    // @ts-ignore: I think innerText is a thing.
+    const source = codeMirror.innerText
+
+    if (!source || !source.trim()) {
+      return
+    }
+
+    try {
+      const parsed = parse(state.query)
+      const functionName = parsed.definitions.find(
+        (operation) => {
+          return operation.kind === 'OperationDefinition'
+        }
+        // @ts-ignore: demo time
+      )?.name?.value
+
+      if (source && functionName) {
+        const result = saveNetlifyFunctions([
+          {
+            functionName: functionName,
+            source: source,
+          },
+        ])
+
+        console.debug('Result of saving netlify function: ', result)
+      }
+    } catch (e) {
+      console.error('Error parsing GraphQL doc and saving function: ', e)
+    }
+  }
+
   return (
     <div
       className="graphiql-container"
@@ -272,6 +315,13 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
             label="Code Exporter"
             title="Toggle Code Exporter"
           />
+          {state.codeExporterIsOpen ? (
+            <GraphiQL.Button
+              onClick={_handleSaveNetlifyFunctions}
+              label="Save Netlify function"
+              title="Toggle Code Exporter"
+            />
+          ) : null}
         </GraphiQL.Toolbar>
       </GraphiQL>
       {codeExporter}

@@ -146,3 +146,19 @@ export const setIntegrationStatus = async (database: Database) => {
   const text = await resp.text()
   return JSON.parse(text)
 }
+
+type NewNetlifyFunction = {
+  functionName: string
+  source: string
+}
+
+export const saveNetlifyFunctions = async (
+  newFunctions: Array<NewNetlifyFunction>
+) => {
+  const resp = await fetch('/.netlify/functions/saveNetlifyFunctions', {
+    method: 'POST',
+    body: JSON.stringify({ functions: newFunctions }),
+  })
+  const text = await resp.text()
+  return JSON.parse(text)
+}

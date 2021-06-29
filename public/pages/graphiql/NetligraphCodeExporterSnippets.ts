@@ -215,8 +215,11 @@ const coercerFor = (type: TypeNode, name: string): string => {
 function asyncFetcherInvocation(
   operationDataList: Array<OperationData>,
   vars: any,
-  pluckerStyle: 'get' | 'post'
+  pluckerStyle: 'get' | 'post',
+  useClientAuth: boolean
 ): string {
+  const netligraphClientName = useClientAuth ? 'netligraphClient' : 'netligraph'
+
   return operationDataList
     .filter((operationData) => {
       return ['query', 'mutation', 'subscription'].includes(operationData.type)
@@ -410,7 +413,8 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
     const fetcherInvocation = asyncFetcherInvocation(
       operationDataList,
       vars,
-      options?.postHttpMethod === true ? 'post' : 'get'
+      options?.postHttpMethod === true ? 'post' : 'get',
+      options.useClientAuth
     )
 
     const filename = `${firstOperation.name}.js`

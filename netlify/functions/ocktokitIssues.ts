@@ -27,24 +27,24 @@ export const handler = withGraph(async (event, { netligraph }) => {
   const eventBodyJson = JSON.parse(event.body || '{}')
 
   const owner = eventBodyJson?.owner
-  const name = eventBodyJson?.name
+  const repo = eventBodyJson?.name
   const count = eventBodyJson?.first
-  const cursor = eventBodyJson?.cursor
+  const page = eventBodyJson?.page
 
-  if (!owner || !name) {
+  if (!owner || !repo) {
     return {
       statusCode: 422,
       body: JSON.stringify({
-        error: 'You must supply a `owner` and `name` parameter',
+        error: 'You must supply a `owner` and `repo` parameter',
       }),
     }
   }
 
-  const { data } = await ocktokit.rest.issues.list({
+  const { data } = await ocktokit.rest.issues.listForRepo({
     owner,
-    name,
-    first: !!count ? parseInt(count) : undefined,
-    after: cursor,
+    repo,
+    per_page: !!count ? parseInt(count) : undefined,
+    page: page,
   })
 
   return {

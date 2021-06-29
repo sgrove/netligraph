@@ -8,6 +8,7 @@ const FindEnabledServicesQuery = `query FindEnabledServicesQuery {
         friendlyServiceName
         service
         isLoggedIn
+        bearerToken
       }
     }
   }
@@ -41,6 +42,13 @@ export const handler = withGraph(async (event, { netligraph }) => {
       (active: any) => active.service
     )
 
+  const serviceBearerTokens: Record<string, string | null> = Object.fromEntries(
+    result?.data?.me?.serviceMetadata?.loggedInServices?.map((active: any) => [
+      active.service,
+      active.bearerToken,
+    ])
+  )
+
   if ((result?.errors?.length || 0) > 0) {
     return {
       statusCode: 500,
@@ -55,13 +63,14 @@ export const handler = withGraph(async (event, { netligraph }) => {
     accessToken: accessToken,
     loggedInServices: loggedInServices,
     manuallyEnabledServices: body.manuallyEnabledServices || [],
+    serviceBearerTokens: serviceBearerTokens,
   }
 
   writeDatabase(database)
 
   return {
     statusCode: 200,
-    body: JSON.stringify(database),
+    body: JSON.stringify({ ...database, serviceBearerTokens: undefined }),
     headers: {
       'content-type': 'application/json',
     },

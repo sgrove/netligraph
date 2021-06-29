@@ -4,7 +4,9 @@ export const handler = withGraph(async (event, { netligraph }) => {
   if (!netligraph?.gitHub.enabled) {
     return {
       statusCode: 400,
-      body: 'Please enable the GitHub netligraph',
+      body: JSON.stringify({
+        error: 'Please enable the GitHub netligraph',
+      }),
     }
   }
 
@@ -16,10 +18,13 @@ export const handler = withGraph(async (event, { netligraph }) => {
   if (!owner || !name) {
     return {
       statusCode: 422,
-      body: 'You must supply a `owner` and `name` parameter',
+      body: JSON.stringify({
+        error: 'You must supply a `owner` and `name` parameter',
+      }),
     }
   }
 
+  // We're using the netligraph API client, so we auth is already bundled
   const { data } = await netligraph.gitHub.fetchRepositoryIssues(netligraph, {
     owner,
     name,
@@ -32,6 +37,7 @@ export const handler = withGraph(async (event, { netligraph }) => {
     body: JSON.stringify(data),
     headers: {
       'content-type': 'application/json',
+      'github-client': 'netligraph',
     },
   }
 })

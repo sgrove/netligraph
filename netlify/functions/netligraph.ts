@@ -12,6 +12,7 @@ export type Database = {
   accessToken: string | null
   manuallyEnabledServices: Array<string>
   loggedInServices: Array<string>
+  serviceBearerTokens: Record<string, string | null>
 }
 
 const databaseFilename = 'tmp/database.json'
@@ -29,6 +30,7 @@ export const readDatabase = (): Database => {
       accessToken: null,
       manuallyEnabledServices: [],
       loggedInServices: [],
+      serviceBearerTokens: {},
     }
   }
 }
@@ -87,6 +89,7 @@ const fetchGitHubIssues = (
 
 interface GitHubEnabledClient {
   enabled: true
+  authToken: string | null
   fetchRepositoryIssues: (
     netligraph: Netligraph,
     variables: fetchGitHubIssuesProps
@@ -183,6 +186,7 @@ export function makeClient(props: MakeClientProps): Netligraph {
       enabled: serviceEnabled(database, 'npm'),
     },
     gitHub: {
+      authToken: database.serviceBearerTokens.GITHUB,
       enabled: serviceEnabled(database, 'gitHub'),
       fetchRepositoryIssues: fetchGitHubIssues,
     },

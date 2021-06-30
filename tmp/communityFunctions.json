@@ -1,0 +1,317 @@
+[
+  {
+    "id": "sgrove/npmPackage",
+    "definition": "query npmPackage($name: String!) {\n    npm {\n      package(name: $name) {\n        name\n        homepage\n        downloads {\n          lastMonth {\n            count\n          }\n        }\n        repository {\n          sourceRepository {\n            ... on GitHubRepository {\n              id\n              name\n              description\n            }\n          }\n        }\n      }\n    }\n  }",
+    "description": "Find the GitHub repository and npm download count for a npm package"
+  },
+  {
+    "id": "sgrove/CreateLead",
+    "definition": "mutation CreateLead(\n    $firstName: String!\n    $lastName: String!\n    $email: String!\n  ) {\n    salesforce {\n      createLead(\n        input: {\n          lead: {\n            firstName: $firstName\n            lastName: $lastName\n            email: $email\n            company: \"Unknown\"\n          }\n        }\n      ) {\n        lead {\n          id\n          oneGraphId\n          email\n          name\n        }\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/CreateIssue",
+    "definition": "mutation CreateIssue(\n    $repositoryId: ID!\n    $title: String!\n    $labelIds: [ID!]!\n    $body: String!\n  ) {\n    gitHub {\n      createIssue(\n        input: {\n          repositoryId: $repositoryId\n          title: $title\n          labelIds: $labelIds\n          body: $body\n        }\n      ) {\n        issue {\n          id\n          oneGraphId\n        }\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/LinkNodes",
+    "definition": "mutation LinkNodes(\n    $endNodeOneGraphId: ID!\n    $startNodeOneGraphId: ID!\n  ) {\n    oneGraph {\n     forward: linkOneGraphNodes(\n        input: {\n          startNodeOneGraphId: $startNodeOneGraphId\n          endNodeOneGraphId: $endNodeOneGraphId\n        }\n      ) {\n        __typename\n      }\n     backward: linkOneGraphNodes(\n        input: {\n          startNodeOneGraphId: $endNodeOneGraphId\n          endNodeOneGraphId: $startNodeOneGraphId\n        }\n      ) {\n        __typename\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/IssueEvents",
+    "definition": "subscription IssueEvents(\n    $repoOwner: String!\n    $repoName: String!\n  ) {\n    github {\n      issuesEvent(\n        input: { repoOwner: $repoOwner, repoName: $repoName }\n      ) {\n        issue {\n          title\n          id\n          number\n        }\n        action\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/AmILoggedIntoDevTo",
+    "definition": "query AmILoggedIntoDevTo($apiKey: String) {\n    me(auths: { devToAuth: { apiKey: $apiKey } }) {\n      devTo {\n        isLoggedIn\n      }\n    }\n  }",
+    "description": "Tell if a user is logged in (either via an `$apiKey` or the OAuth flow).\n  Note: We'll deprecate this field in favor of `id` as with our other integrations if/when DEV adds an endpoint to retrieve information about the currently logged in user. However, this field can be safely relied on to work even after that happens.\n  \n  You can find or create your DEV.to API keys in [the settings menu on dev.to](https://dev.to/settings/account)"
+  },
+  {
+    "id": "sgrove/CreateDevToArticle",
+    "definition": "mutation CreateDevToArticle($apiKey: String!) {\n    devTo(auths: { devToAuth: { apiKey: $apiKey } }) {\n      createArticle(\n        input: {\n          article: {\n            title: \"Posting articles to dev.to from any programming language via GraphQL: An Exhaustive Guide\"\n            bodyMarkdown: \"Just use OneGraph, of course!\"\n            tags: [\"graphql\", \"onegraph\"]\n          }\n        }\n      ) {\n        article {\n          bodyHtml\n          bodyMarkdown\n          id\n          slug\n          tags\n          url\n        }\n      }\n    }\n  }",
+    "description": "Creates an (unpublished) article on DEV.to\n  \n  See the [Publishing and Unpublishing](SetDevToArticlePublished) example for how to publish the article after creating it."
+  },
+  {
+    "id": "sgrove/CreateDevToWebhook",
+    "definition": "mutation CreateDevToWebhook($apiKey: String!) {\n    devTo(auths: { devToAuth: { apiKey: $apiKey } }) {\n      createWebhook(\n        input: {\n          webhookEndpoint: {\n            source: \"OneGraph\"\n            targetUrl: \"https://websmee.com/hook/dev-to-example?_websmee_inspect\"\n            events: [\n              \"article_created\"\n              \"article_updated\"\n            ]\n          }\n        }\n      ) {\n        webhook {\n          id\n          source\n          targetUrl\n          events\n          createdAt\n        }\n      }\n    }\n  }",
+    "description": "Creates a webhook that will be notified whenever an article is created or published on DEV.to\n  \n  See the counter example on [Destroying a Webhook on DEV.to](DestroyDevToWebhook).\n  \n  You can find or create your DEV.to API keys in [the settings menu on dev.to](https://dev.to/settings/account)"
+  },
+  {
+    "id": "sgrove/DestroyDevToWebhook",
+    "definition": "mutation DestroyDevToWebhook($apiKey: String!, $id: Int!) {\n    devTo(auths: { devToAuth: { apiKey: $apiKey } }) {\n      destroyWebhook(input: { id: $id }) {\n        webhook {\n          id\n          source\n          targetUrl\n          events\n          createdAt\n          user {\n            name\n            username\n            twitterUsername\n            githubUsername\n            websiteUrl\n            profileImage\n            profileImage90\n          }\n        }\n      }\n    }\n  }",
+    "description": "Destroys a webhook on DEV.to by its `id`.\n  \n  See the counter example on [Creating a Webhook on DEV.to](CreateDevToWebhook).\n  \n  You can find or create your DEV.to API keys in [the settings menu on dev.to](https://dev.to/settings/account)"
+  },
+  {
+    "id": "sgrove/FindMyDevToWebhooks",
+    "definition": "query FindMyDevToWebhooks($apiKey: String!) {\n    me(auths: { devToAuth: { apiKey: $apiKey } }) {\n      devTo {\n        webhooks {\n          id\n          source\n          targetUrl\n          events\n          createdAt\n        }\n      }\n    }\n  }",
+    "description": "Lists all of the webhooks you've created on DEV.to\n  \n  You can find or create your DEV.to API keys in [the settings menu on dev.to](https://dev.to/settings/account)"
+  },
+  {
+    "id": "sgrove/FindMyTwitchUserIdAndEmail",
+    "definition": "query FindMyTwitchUserIdAndEmail {\n    me {\n      twitchTv {\n        id\n        email\n        emailVerified\n        displayName\n      }\n    }\n  }",
+    "description": "Finds a few details about the user if they're logged into Twitch:\n  \n  - Twitch `userId`\n  - email\n  - whether the email has been verified by Twitch (`emailVerified`)\n  - The display name (what you'd see in the Twitch chat)"
+  },
+  {
+    "id": "sgrove/FindUserContributionToOrgCount",
+    "definition": "query FindUserContributionToOrgCount(\n    # You'll need to format this string when fetching this query\n    # at runtime.\n    # For example, your JavaScript might look like:\n    # const query = \"org:${repoOwner} author:${username} type:pr is:merged\";\n    $query: String = \"org:onegraph author:sgrove type:pr is:merged\"\n  ) {\n    gitHub {\n      search(first: 1, query: $query, type: ISSUE) {\n        contributionCount: issueCount\n      }\n    }\n  }",
+    "description": "Finds out how many PRs have been merged across an org for a given user - use this to reward your community members, like Gatsby!"
+  },
+  {
+    "id": "sgrove/GetNpmPackageDownloads",
+    "definition": "query GetNpmPackageDownloads($name: String!) {\n    npm {\n      package(name: $name) {\n        downloads {\n          lastMonth {\n            count\n          }\n        }\n      }\n    }\n  }",
+    "description": "Get the downloads for a package on npm given the package name"
+  },
+  {
+    "id": "sgrove/AddPullRequestCommentMutation",
+    "definition": "mutation AddPullRequestCommentMutation(\n    $pullRequestId: ID!\n    $body: String!\n  ) {\n    gitHub {\n      addComment(\n        input: { body: $body, subjectId: $pullRequestId }\n      ) {\n        subject {\n          ... on GitHubPullRequest {\n            id\n            title\n            comments {\n              nodes {\n                id\n                body\n              }\n            }\n          }\n        }\n      }\n    }\n  }",
+    "description": "Add a comment to a pull request given its id - see the [GitHubGetPullRequest example](GitHubGetPullRequest) for how to find a PR's id given its repository and number."
+  },
+  {
+    "id": "sgrove/CreateBranchMutation",
+    "definition": "mutation CreateBranchMutation(\n    $repoOwner: String!\n    $repoName: String!\n    $branchName: String!\n  ) {\n    gitHub {\n      createBranch_oneGraph(\n        input: {\n          branchName: $branchName\n          repoName: $repoName\n          repoOwner: $repoOwner\n        }\n      ) {\n        ref_: ref {\n          name\n          id\n        }\n      }\n    }\n  }",
+    "description": "Create a branch name `$branchName` (from `master`) on the GitHub project `${repoOwner}/${repoName}`"
+  },
+  {
+    "id": "sgrove/GitHubCreateIssueCommentMutation",
+    "definition": "mutation GitHubCreateIssueCommentMutation {\n    gitHub {\n      addComment(\n        input: {\n          body: \"Comment added from OneGraph\"\n          subjectId: \"MDU6SXNzdWU0MTQ4ODg3MTM=\"\n        }\n      ) {\n        commentEdge {\n          node {\n            body\n            url\n          }\n        }\n      }\n    }\n  }",
+    "description": "Add a new comment on a GitHub issue."
+  },
+  {
+    "id": "sgrove/UpdateFileMutation",
+    "definition": "mutation UpdateFileMutation(\n    $repoOwner: String!\n    $repoName: String!\n    $branchName: String!\n    $path: String!\n    $message: String!\n    $content: String!\n    $sha: String!\n  ) {\n    gitHub {\n      createOrUpdateFileContent_oneGraph(\n        input: {\n          message: $message\n          path: $path\n          repoName: $repoName\n          repoOwner: $repoOwner\n          branchName: $branchName\n          plainContent: $content\n          existingFileSha: $sha\n        }\n      ) {\n        commit {\n          message\n        }\n      }\n    }\n  }",
+    "description": "Create a single commit on the GitHub project `${repoOwner}/${repoName}` that `upserts` (creates a new file if it doesn't exist, or updates it if it does).\n  \n  For example, to add a new file `/examples/MyExample.md` to the [OneGraph GraphQL Docs Repository](https://github.com/OneGraph/graphql-docs/tree/master/src/examples), the following variables would work:\n  javascript\n  {\n    `repoName`: `graphql-docs`,\n    `repoOwner`: `OneGraph`,\n    `branchName`: `master`,\n    `path`: `src/examples/MyExample.md`,\n    `message`: `Adding a new example`,\n    `content`: `Example file content here`,\n    `sha`: null\n  }\n  \n  Note that if you're _updating_ a file, you'll need to provide its *current* sha for the mutation to succeed. See the [GitHubGetFileShaAndContent example](GitHubGetFileShaAndContent) for how to find an existing file's sha."
+  },
+  {
+    "id": "sgrove/DeleteIssueById",
+    "definition": "mutation DeleteIssueById($id: ID!) {\n    gitHub {\n      deleteIssue(input: { issueId: $id }) {\n        repository {\n          issues(\n            first: 0\n            orderBy: { direction: DESC, field: CREATED_AT }\n          ) {\n            totalCount\n          }\n        }\n      }\n    }\n  }",
+    "description": "You'll need to find the GitHub issue id first (see the [GitHubFindIssueIdByNumber](GitHubFindIssueIdByNumber) example) to use as the argument to `issueId`.\n  \n  Since issue ids are globally unique across every kind of object in GitHub, you won't need to add the repository owner/name, just the `id`!\n  javascript\n  {\n    `id`: `MDU6SXNzdWU1NDUyNDk2ODg=`\n  }"
+  },
+  {
+    "id": "sgrove/GitHubFindIssueIdByNumber",
+    "definition": "query GitHubFindIssueIdByNumber(\n    $repoOwner: String!\n    $repoName: String!\n    $number: Int!\n  ) {\n    gitHub {\n      repository(owner: $repoOwner, name: $repoName) {\n        issue(number: $number) {\n          id\n          title\n        }\n      }\n    }\n  }",
+    "description": "Given a repository `$repoOwner`/`$repoName`, find the id of an issue by its `$number`.\n  \n  Usually users think of `issue #10`, but most GitHub GraphQL mutations refer to issues by their id, so you'll find this query quite helpful! For example, you'll need the issue id if you want to [Delete a GitHub issue](GitHubDeleteIssueById).\n  \n  \n  To find the id of issue #3 on the [OneGraph GraphQL Docs Repository](https://github.com/OneGraph/graphql-docs/issues/1), we could pass in the following variables:\n    \n    ```\n    {\n      `repoName`: `graphql-docs`,\n      `repoOwner`: `OneGraph`,\n      `number`: 3\n    }\n    ```"
+  },
+  {
+    "id": "sgrove/GetFileTextContentsQuery",
+    "definition": "query GetFileTextContentsQuery($repoName: String!, $repoOwner: String!, $branchAndFilePath: String = \"master:README.md\") {\n    gitHub {\n      repository(name: $repoName, owner: $repoOwner) {\n        object_: object(expression: $branchAndFilePath) {\n          ... on GitHubBlob {\n            sha: oid # alias this to \"sha\", as that's a bit more familiar\n            byteSize\n            isBinary\n            # Note the text content will be null if\n            # \"isBinary\" is true\n            text\n          }\n        }\n      }\n    }\n  }",
+    "description": "Get the (textual) value of a file in a GitHub repo via GraphQL\n  - `$branchAndFilePath` should be formatted as `${branchName}:${filePath without the leading`/'}`\n  \n  Note that the `text` field will be null if the file is a binary blog (such as an image).\n  \n  If you need to read the binary content, email [support@onegraph.com](mailto:support@onegraph.com?subject=Can you add a base64-encoded binary content field to the `GitHubBlob` type on OneGraph?) and we can stitch in the [corresponding REST endpoint](https://developer.github.com/v3/git/blobs/#get-a-blob)"
+  },
+  {
+    "id": "sgrove/GetPullRequest",
+    "definition": "query GetPullRequest {\n    gitHub {\n      repository(owner: \"OneGraph\", name: \"graphql-docs\") {\n        pullRequest(number: 1) {\n          id # The \"id\" is useful if you want to add a comment to the PR\n          headRefOid # The \"headRefOid\" sha is useful if you need to merge this PR\n          title\n          state\n        }\n      }\n    }\n  }",
+    "description": "Get the details of a pull request by its number.\n  \n  Also see:\n  - how to [Merge a Pull Request](GitHubMergePullRequest)\n  - how to [Add a comment to a Pull Request](GitHubAddPullRequestComment)"
+  },
+  {
+    "id": "sgrove/GitHubIsRepositoryAFork",
+    "definition": "query GitHubIsRepositoryAFork(\n    $repoOwner: String!\n    $repoName: String!\n  ) {\n    gitHub {\n      repository(owner: $repoOwner, name: $repoName) {\n        id\n        ## Is this repository a fork?\n        isFork\n        parent {\n          ## if it is a fork, what's the original?\n          nameWithOwner\n        }\n      }\n    }\n  }",
+    "description": "Given a GitHub `$repoOwner`/`$repoName`, find if the corresponding repository is fork (`gitHub.repository.isFork`) - and if so, what the original repository is `gitHub.repository.parent.nameWithOwner`."
+  },
+  {
+    "id": "sgrove/MergePullRequest",
+    "definition": "mutation MergePullRequest(\n    $repoOwner: String!\n    $repoName: String!\n    $number: Int!\n    $sha: String!\n    $title: String!\n  ) {\n    gitHub {\n      mergePullRequest_oneGraph(\n        input: {\n          repoOwner: $repoOwner\n          repoName: $repoName\n          number: $number\n          sha: $sha\n          commitTitle: $title\n        }\n      ) {\n        pullRequest {\n          id\n          title\n          merged\n          state\n        }\n      }\n    }\n  }",
+    "description": "Merge a GitHub pull request by its number with `$title` as the commit message.\n  \n  Note as a precaution against merging a PR into the wrong target, you'll need to provide the current sha of the target branch head. You can find the sha under the `headRef.oid` field of the Pull Request, as per the [GitHubGetPullRequest example](GitHubGetPullRequest)\n  \n  To merge the first PR on the [OneGraph GraphQL Docs Repository](https://github.com/OneGraph/graphql-docs/pulls/1), we could pass in the following variables:\n  javascript\n  {\n    `repoName`: `graphql-docs`,\n    `repoOwner`: `OneGraph`,\n    `number`: 1,\n    `title`: `Merge the GitHub examples, thank you @dwwoelfel!`,\n    `sha`: `44d4e20fd739f486411049b7e94849d7b3332770`\n  }"
+  },
+  {
+    "id": "sgrove/GitHubOpenPullRequestsQuery",
+    "definition": "query GitHubOpenPullRequestsQuery {\n    gitHub {\n      repository(name: \"graphql-js\", owner: \"graphql\") {\n        pullRequests(\n          orderBy: {direction: DESC, field: CREATED_AT}\n          first: 10\n          states: OPEN\n        ) {\n          nodes {\n            title\n          }\n        }\n      }\n    }\n  }",
+    "description": "Fetch the first ten open pull requests for a GitHub repository, sorted by when they were opened."
+  },
+  {
+    "id": "sgrove/GitHubUnresolvedIssuesQuery",
+    "definition": "query GitHubUnresolvedIssuesQuery {\n    gitHub {\n      viewer {\n        issues(\n          orderBy: {direction: DESC, field: CREATED_AT}\n          first: 10\n          states: OPEN\n        ) {\n          edges {\n            node {\n              title\n              repository {\n                nameWithOwner\n              }\n            }\n          }\n        }\n      }\n    }\n  }",
+    "description": "Fetch the first ten open issues for a GitHub repository, sorted by when they were created."
+  },
+  {
+    "id": "sgrove/IntercomCreateUserMutation",
+    "definition": "mutation IntercomCreateUserMutation {\n    intercom {\n      createUser(input: {email: \"newuser@example.com\", name: \"New User\"}) {\n        user {\n          id\n          email\n        }\n      }\n    }\n  }",
+    "description": "Create a new user on Intercom."
+  },
+  {
+    "id": "sgrove/IntercomOpenConversations",
+    "definition": "query IntercomOpenConversations {\n    intercom {\n      conversations(\n        displayAsPlaintext: true\n        orderBy: ASC\n        sortByField: WAITING_SINCE\n      ) {\n        nodes {\n          conversationMessage {\n            body\n          }\n          customers {\n            name\n            email\n          }\n        }\n      }\n    }\n  }",
+    "description": "List open conversations on Intercom."
+  },
+  {
+    "id": "sgrove/IntercomUsersWithConversationsQuery",
+    "definition": "query IntercomUsersWithConversationsQuery {\n    intercom {\n      users(first: 10, orderBy: DESC, sortByField: LAST_REQUEST_AT) {\n        nodes {\n          email\n          conversations(displayAsPlaintext: true) {\n            nodes {\n              id\n              conversationMessage {\n                body\n              }\n            }\n          }\n        }\n      }\n    }\n  }",
+    "description": "List Intercom conversations for users that have been active recently."
+  },
+  {
+    "id": "sgrove/IsDomainAvailableQueryOnZeit",
+    "definition": "query IsDomainAvailableQuery($domain: String!) {\n    zeit {\n      domainAvailable(name: $domain) {\n        available\n      }\n    }\n  }",
+    "description": "Check if a domain is available on Zeit"
+  },
+  {
+    "id": "sgrove/MuxCreateVideoAsset",
+    "definition": "mutation MuxCreateVideoAsset($secret: String!, $tokenId: String!) {\n    mux(auths: {muxAuth: {accessToken: {secret: $secret, tokenId: $tokenId}}}) {\n      createAsset(\n        input: {\n          # The source video to start with (thanks to http://techslides.com/sample-webm-ogg-and-mp4-video-files-for-html5 for providing this!)\n          sourceUrl: \"http://techslides.com/demos/sample-videos/small.mp4\"\n          # Any images we want to overlay on top of the video\n          imageInputs: [\n            {\n              url: \"https://avatars2.githubusercontent.com/u/35296?s=460&u=9753e52e664dba2ab83b2c08b9a6cc90a5cac7bb&v=4\"\n              overlaySettings: {\n                verticalAlign: BOTTOM\n                horizontalAlign: LEFT\n                verticalMargin: \"5%\"\n                horizontalMargin: \"5%\"\n                width: \"15%\"\n                height: \"15%\"\n              }\n            }\n          ]\n          # Subtitles or closed captions: each will be included as a separate option in the final video\n          textualInputs: [\n            {\n              url: \"https://egghead.io/api/v1/lessons/graphql-use-graphql-primitive-types/subtitles\"\n              textType: SUBTITLES\n              languageCode: \"en\"\n              name: \"English\"\n              passthrough: \"Data attached to this subtitle resource\"\n            }\n          ]\n          # Metadata to control permissions for the playback, to attach some custom data to the resource, set the mp4 support level, etc.\n          settings: {\n            isTest: false\n            masterAccess: TEMPORARY\n            mp4Support: STANDARD\n            normalizeAudio: true\n            passthrough: \"{\\\"json-also-works\\\": true}\"\n            perTitleEncode: true\n            playbackPolicy: PUBLIC\n            demo: false\n          }\n        }\n      ) {\n        # Our created asset!\n        asset {\n          ...MuxVideoAssetFragment\n        }\n      }\n    }\n  }\n  \n  fragment MuxVideoAssetFragment on MuxVideoAsset {\n    isLive\n    id\n    isTest\n    errors {\n      type\n      messages\n    }\n    playbackIds {\n      id\n      policy\n    }\n    status\n  }",
+    "description": "Create a video asset on Mux with a source video, an image overlay, and textual subtitles.\n  \n  You'll need your Mux access token `id`/`secret` for the variables (find them on the [Mux dashboard settings](https://dashboard.mux.com/settings/access-tokens)):\n  \n  {\n    `secret`: `mymuxsecret`,\n    `tokenId`: `mytokenid`\n  }"
+  },
+  {
+    "id": "sgrove/MuxListVideoAssetNoPaginationQuery",
+    "definition": "query MuxListAssetQuery(\n    $secret: String!\n    $tokenId: String!\n  ) {\n    mux(\n      auths: {\n        muxAuth: {\n          accessToken: { secret: $secret, tokenId: $tokenId }\n        }\n      }\n    ) {\n      video {\n        assets {\n          edges {\n            node {\n              ...MuxVideoAssetFragment\n            }\n          }\n        }\n      }\n    }\n  }\n  \n  fragment MuxVideoAssetFragment on MuxVideoAsset {\n    isLive\n    id\n    isTest\n    errors {\n      type\n      messages\n    }\n    playbackIds {\n      id\n      policy\n    }\n    status\n  }",
+    "description": "List your video asset on Mux (without pagination).\n  \n  You'll need your Mux access token `id`/`secret` for the variables (find them on the [Mux dashboard settings](https://dashboard.mux.com/settings/access-tokens)):\n  \n  {\n    `secret`: `mymuxsecret`,\n    `tokenId`: `mytokenid`\n  }"
+  },
+  {
+    "id": "sgrove/MuxVideoAssetByOneGraphNodeId",
+    "definition": "query MuxVideoAssetByOneGraphNodeId(\n    $tokenId: String!\n    $secret: String!\n    $oneGraphNodeId: ID!\n  ) {\n    oneGraphNode(\n      auths: {\n        muxAuth: {\n          accessToken: { secret: $secret, tokenId: $tokenId }\n        }\n      }\n      oneGraphId: $oneGraphNodeId\n    ) {\n      ... on MuxVideoAsset {\n        ...MuxVideoAssetFragment\n      }\n    }\n  }\n  \n  fragment MuxVideoAssetFragment on MuxVideoAsset {\n    isLive\n    id\n    isTest\n    errors {\n      type\n      messages\n    }\n    playbackIds {\n      id\n      policy\n    }\n    status\n    oneGraphId\n  }",
+    "description": "Look up a Mux video asset directly by its oneGraphNodeId.\n  \n  You'll need your Mux access token `id`/`secret` for the variables (find them on the [Mux dashboard settings](https://dashboard.mux.com/settings/access-tokens)):\n  \n  {\n    `secret`: `mymuxsecret`,\n    `tokenId`: `mytokenid`\n  }"
+  },
+  {
+    "id": "sgrove/MuxVideoAssetQuery",
+    "definition": "query MuxAssetQuery(\n    $id: String!\n    $secret: String!\n    $tokenId: String!\n  ) {\n    mux(\n      auths: {\n        muxAuth: {\n          accessToken: { secret: $secret, tokenId: $tokenId }\n        }\n      }\n    ) {\n      video {\n        asset(id: $id) {\n          ...MuxVideoAssetFragment\n        }\n      }\n    }\n  }\n  \n  fragment MuxVideoAssetFragment on MuxVideoAsset {\n    isLive\n    id\n    isTest\n    errors {\n      type\n      messages\n    }\n    playbackIds {\n      id\n      policy\n    }\n    status\n  }",
+    "description": "Find a VideoAsset on Mux via its id.\n  \n  You'll need your Mux access token `id`/`secret` for the variables (find them on the [Mux dashboard settings](https://dashboard.mux.com/settings/access-tokens)), and the id of your Mux asset:\n  \n  {\n    `secret`: `mymuxsecret`\n    `tokenId`: `mytokenid`\n    `id`: `assetId`\n  }"
+  },
+  {
+    "id": "sgrove/MyDevToArticlesPendingPublication",
+    "definition": "query MyDevToArticlesPendingPublication($apiKey: String!) {\n    me(auths: { devToAuth: { apiKey: $apiKey } }) {\n      devTo {\n        articles(publishStatus: UNPUBLISHED) {\n          nodes {\n            id\n            title\n            bodyMarkdown\n          }\n        }\n      }\n    }\n  }",
+    "description": "Finds all articles I've written on DEV.to (sorted by recency) that haven't been published yet."
+  },
+  {
+    "id": "sgrove/RecentlyRisingTopArticles",
+    "definition": "query RecentlyRisingTopArticles {\n    devTo {\n      articles(state: \"rising\") {\n        nodes {\n          id\n          title\n          url\n          socialImage\n          publishedAt\n          user {\n            name\n            username\n            githubUsername\n          }\n        }\n      }\n    }\n  }",
+    "description": "Find the recently rising top articles on DEV"
+  },
+  {
+    "id": "sgrove/RssFeeds",
+    "definition": "query RssFeed($url: String!) {\n    rss {\n      rss2Feed(url: $url) {\n        title\n        items {\n          title\n          ## Enclosure contains the link to the podcast audio\n          enclosure {\n            url # Use this in an <audio src=\"\"> tag for a podcast player!\n            length\n            mime\n          }\n          content\n          description\n        }\n      }\n    }\n  }",
+    "description": "You can build a podcast player with GraphQL simply by passing in a `$url` param, for example:\n  \n  {`url`: `https://feeds.simplecast.com/tRYUp5wn`}"
+  },
+  {
+    "id": "sgrove/SalesforceCasesQuery",
+    "definition": "query SalesforceCasesQuery {\n    salesforce {\n      cases(\n        filter: {status: {notEqualTo: \"Closed\"}}\n        sortByField: PRIORITY\n        orderBy: ASC\n      ) {\n        edges {\n          node {\n            id\n            status\n            priority\n          }\n        }\n      }\n    }\n  }",
+    "description": "List open cases on Salesforce."
+  },
+  {
+    "id": "sgrove/SalesforceLeadsQuery",
+    "definition": "query SalesforceLeadsQuery {\n    salesforce {\n      leads(sortByField: CREATED_DATE, orderBy: DESC, first: 10) {\n        nodes {\n          firstName\n          lastName\n          email\n          createdDate\n        }\n      }\n    }\n  }",
+    "description": "List leads on Salesforce, ordered by when they were created."
+  },
+  {
+    "id": "sgrove/SalesforceOpportunitiesQuery",
+    "definition": "query SalesforceOpportunitiesQuery {\n    salesforce {\n      opportunities(\n        first: 10\n        filter: {account: {numberOfEmployees: {greaterThan: 10}}}\n      ) {\n        nodes {\n          name\n          expectedRevenue\n          probability\n          stageName\n          account {\n            name\n            numberOfEmployees\n          }\n        }\n      }\n    }\n  }",
+    "description": "List Opportunities on Salesforce, where the account has more then 10 employees."
+  },
+  {
+    "id": "sgrove/SetDevToArticlePublished",
+    "definition": "mutation SetDevToArticlePublished(\n    $apiKey: String!\n    $articleId: Int!\n    $isPublished: Boolean!\n  ) {\n    devTo(auths: { devToAuth: { apiKey: $apiKey } }) {\n      setArticlePublished(\n        input: { id: $articleId, published: $isPublished }\n      ) {\n        article {\n          bodyHtml\n          bodyMarkdown\n          id\n          slug\n          tags\n          publishedAt\n          publishedTimestamp\n          url\n        }\n      }\n    }\n  }",
+    "description": "Publishes (and un-publishes) an article by its `id` (`$articleId`).\n  \n  You can find or create your DEV.to API keys in [the settings menu on dev.to](https://dev.to/settings/account)"
+  },
+  {
+    "id": "sgrove/SpecificRangeInGoogleSheets",
+    "definition": "query SpecificRangeInGoogleSheets(\n    # The id of the sheet to pull data from, in\n    # https://docs.google.com/spreadsheets/d/1CRUduucIQKot-Bwvh4teSblQTWPsIoNUs6AGLAg7Sjs/edit\n    # it would be \"1CRUduucIQKot-Bwvh4teSblQTWPsIoNUs6AGLAg7Sjs\"\n    $id: String!\n    # Normal syntax for selecting ranges in sheets\n    $ranges: String = \"e12:f16\"\n  ) {\n    google {\n      sheets {\n        sheet(\n          id: $id\n          ranges: $ranges\n          includeGridData: true\n        ) {\n          sheets {\n            data {\n              rowData {\n                values {\n                  formattedValue\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n  }",
+    "description": "Reads from a specific range of cells in a Google sheets"
+  },
+  {
+    "id": "sgrove/AboutMe",
+    "definition": "## Find some information about the currently logged-in\n  ## Spotify user.\n  query AboutMe {\n    me {\n      spotify {\n        country\n        displayName\n        email\n        href\n        id\n        images {\n          height\n          url\n          width\n        }\n        product\n        type\n        uri\n      }\n    }\n  }",
+    "description": "Find the currently logged-in Spotify user's email, name, profile image, etc. from GraphQL!"
+  },
+  {
+    "id": "sgrove/FullPlayer",
+    "definition": "## Find some information about the currently logged-in\n  ## Spotify user.\n  query AboutMe {\n    me {\n      spotify {\n        birthdate\n        country\n        displayName\n        email\n        href\n        id\n        images {\n          height\n          url\n          width\n        }\n        product\n        type\n        uri\n      }\n    }\n  }\n  \n  ## Note that by default this will affect the\n  ## currently active device. If you get an error,\n  ## either specify \"deviceId\", or start playing\n  ## a song on any of your Spotify devices.\n  mutation Pause {\n    __typename\n    spotify {\n      pausePlayer {\n        player {\n          ...Player\n        }\n      }\n    }\n  }\n  \n  mutation Resume {\n    __typename\n    spotify {\n      skipNextTrack {\n        player {\n          ...Player\n        }\n      }\n    }\n  }\n  \n  mutation Next {\n    __typename\n    spotify {\n      skipPreviousTrack {\n        player {\n          ...Player\n        }\n      }\n    }\n  }\n  \n  fragment Player on SpotifyPlayer {\n    timestamp\n    progressMs\n    isPlaying\n    currentlyPlayingType\n    repeatState\n    shuffleState\n    item {\n      id\n      name\n    }\n  }",
+    "description": "Control your Spotify player completely from GraphQL!\n  \n  - Find the currently logged-in Spotify user with `AboutMe`\n  - Search for matching Spotify tracks (songs) with the GraphQL operation `Search`\n  - Use the mutations (`Resume`/`Pause`/`Next`/`Previous`/`Play`) to control the Spotify player"
+  },
+  {
+    "id": "sgrove/Search",
+    "definition": "query Search($query: String!) {\n    spotify {\n      search(data: { query: $query }) {\n        tracks {\n          name\n          id\n          album {\n            name\n            id\n            images {\n              height\n              url\n              width\n            }\n            href\n          }\n          href\n        }\n      }\n    }\n  }",
+    "description": "Search for matching Spotify tracks (songs) with the GraphQL operation `Search`"
+  },
+  {
+    "id": "sgrove/SpotifyPlayTrack",
+    "definition": "mutation SpotifyPlayTrack($trackId: String!) {\n    spotify {\n      playTrack(\n        input: {\n          trackIds: [$trackId]\n        }\n      ) {\n        player {\n          isPlaying\n        }\n      }\n    }\n  }",
+    "description": "Play a song by trackId on Spotify"
+  },
+  {
+    "id": "sgrove/StripeCustomersQuery",
+    "definition": "query StripeCustomersQuery {\n    stripe {\n      customers {\n        nodes {\n          email\n          description\n        }\n      }\n    }\n  }",
+    "description": "List customers on Stripe."
+  },
+  {
+    "id": "sgrove/StripeIssueRefundMutation",
+    "definition": "mutation StripeIssueRefundMutation {\n    stripe {\n      refundCharge(data: {chargeId: \"YOUR_CHARGE_ID\"}) {\n        refund {\n          amount\n          charge {\n            customer {\n              ... on StripeCustomer {\n                email\n              }\n            }\n          }\n          id\n        }\n      }\n    }\n  }",
+    "description": "Issue a refund for a charge on Stripe."
+  },
+  {
+    "id": "sgrove/StripeListRefundsQuery",
+    "definition": "query StripeListRefundsQuery {\n    stripe {\n      refunds {\n        nodes {\n          reason\n          amount\n          status\n          charge {\n            customer {\n              ... on StripeCustomer {\n                email\n              }\n            }\n          }\n        }\n      }\n    }\n  }",
+    "description": "List refunds with charge and customer info on Stripe."
+  },
+  {
+    "id": "sgrove/StripeInvoicesQuery",
+    "definition": "query StripeInvoicesQuery {\n    stripe {\n      invoices(first: 10, status: open) {\n        nodes {\n          amountDue\n          paid\n          customer {\n            ... on StripeCustomer {\n              email\n              description\n            }\n          }\n        }\n      }\n    }\n  }",
+    "description": "List unpaid invoices on Stripe."
+  },
+  {
+    "id": "sgrove/TrelloCreateCardMutation",
+    "definition": "mutation TrelloCreateCardMutation {\n    trello {\n      createCard(\n        input: {\n          idList: \"REPLACE_WITH_LIST_ID\"\n          name: \"New card created from OneGraph\"\n        }\n      ) {\n        card {\n          id\n          name\n          url\n        }\n      }\n    }\n  }",
+    "description": "Add a new card to a Trello list."
+  },
+  {
+    "id": "sgrove/TrelloListBoardsQuery",
+    "definition": "query TrelloListBoardsQuery {\n    trello {\n      member(username: \"spolsky\") {\n        boards {\n          nodes {\n            name\n            cards {\n              nodes {\n                name\n              }\n            }\n          }\n        }\n      }\n    }\n  }",
+    "description": "Get all boards and cards on Trello for a given user."
+  },
+  {
+    "id": "sgrove/TrelloMemberInfo",
+    "definition": "query TrelloMemberInfo {\n    trello {\n      member(username: \"spolsky\") {\n        fullName\n        bio\n        avatarUrl\n        url\n        email\n      }\n    }\n  }",
+    "description": "Get profile information on a Trello user."
+  },
+  {
+    "id": "sgrove/UpdateGitHubUserProfile",
+    "definition": "mutation UpdateGitHubUserProfile(\n    $hireable: Boolean\n    $name: String\n    $twitterUsername: String\n    $bio: String\n  ) {\n    gitHub {\n      # Note that you'll need a custom GitHub app\n      # with the \"user\" permission requested in\n      # order to update a user's profile\n      updateAuthenticatedUser_oneGraph(\n        input: {\n          bio: $bio\n          hireable: $hireable\n          name: $name\n          twitterUsername: $twitterUsername\n        }\n      ) {\n        updatedUser {\n          bio\n          email\n        }\n      }\n    }\n  }",
+    "description": "Updates the currently authenticated GitHub user's profile. To run this, you'll need to either use a personal access token, or you'll need to make a custom GitHub app that requests the `user` permission. \n  \n  Once you've made a custom GitHub app, set the client id/secret for it in your OneGraph dashboard, authenticate a user, and run this mutation!"
+  },
+  {
+    "id": "sgrove/PostSimpleMarkdownSlackMessage",
+    "definition": "mutation PostSimpleMarkdownSlackMessage(\n    $channel: String!\n    $text: String!\n  ) {\n    slack {\n      postMessage(\n        data: {\n          channel: $channel\n          markdown: true\n          text: $text\n        }\n      ) {\n        ok\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/ListMyRepositories",
+    "definition": "query ListMyRepositories {\n    me {\n      github {\n        id\n        login\n        repositories(\n          first: 100\n          orderBy: { field: CREATED_AT, direction: DESC }\n          affiliations: [\n            OWNER\n            COLLABORATOR\n            ORGANIZATION_MEMBER\n          ]\n          ownerAffiliations: [\n            OWNER\n            COLLABORATOR\n            ORGANIZATION_MEMBER\n          ]\n        ) {\n          edges {\n            node {\n              id\n              nameWithOwner\n            }\n          }\n          totalCount\n        }\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/ListFilesOnDefaultBranch",
+    "definition": "query ListFilesOnDefaultBranch($owner: String!, $name: String!) {\n    gitHub {\n      repository(name: $name, owner: $owner) {\n        id\n        defaultBranchRef {\n          ... on GitHubRef {\n            id\n            name\n            target {\n              id\n              oid\n              ... on GitHubCommit {\n                history(first: 1) {\n                  edges {\n                    node {\n                      tree {\n                        entries {\n                          name\n                          path\n                          oid\n                          object {\n                            ... on GitHubTree {\n                              id\n                              entries {\n                                name\n                                path\n                                oid\n                              }\n                            }\n                          }\n                        }\n                      }\n                    }\n                  }\n                }\n                tree {\n                  id\n                  oid\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/ReadData",
+    "definition": "query ReadData($databaseName: String!, $path: String!) {\n    firebase {\n      readData(databaseName: $databaseName, path: $path) {\n        json\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/PushToList",
+    "definition": "mutation PushToList(\n    $databaseName: String!\n    $path: String!\n    $data: JSON!\n  ) {\n    firebase {\n      pushData(\n        input: {\n          data: $data\n          path: $path\n          databaseName: $databaseName\n        }\n      ) {\n        json\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/SetData",
+    "definition": "mutation SetData(\n    $databaseName: String!\n    $path: String!\n    $data: JSON!\n  ) {\n    firebase {\n      setData(\n        input: {\n          data: $data\n          path: $path\n          databaseName: $databaseName\n        }\n      ) {\n        json\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/UpdateData",
+    "definition": "mutation UpdateData(\n    $databaseName: String!\n    $path: String!\n    $updates: [FirebaseUpdateDataUpdateArg!]!\n  ) {\n    firebase {\n      updateData(\n        input: {\n          path: $path\n          databaseName: $databaseName\n          updates: $updates\n        }\n      ) {\n        json\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/PostTweet",
+    "definition": "mutation PostTweet($text: String!) {\n    twitter {\n      postStatus(input: { status: $text }) {\n        tweet {\n          id\n          text\n        }\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/SetStatus",
+    "definition": "mutation SetStatus(\n    $message: String!\n    $limitedAvailability: Boolean = false\n  ) {\n    gitHub {\n      changeUserStatus(\n        input: {\n          message: $message\n          limitedAvailability: $limitedAvailability\n        }\n      ) {\n        status {\n          id\n          message\n          indicatesLimitedAvailability\n          updatedAt\n        }\n      }\n    }\n  }",
+    "description": "TODO"
+  },
+  {
+    "id": "sgrove/CurrentlyListeningTo",
+    "definition": "query CurrentlyListeningTo {\n    spotify {\n      me {\n        player {\n          currentlyPlayingType\n          isPlaying\n          progressMs\n          repeatState\n          shuffleState\n          item {\n            id\n            name\n            previewUrl\n            trackNumber\n            uri\n            album {\n              name\n              uri\n              images {\n                url\n              }\n            }\n            artists {\n              name\n              images {\n                url\n              }\n              uri\n            }\n          }\n        }\n      }\n    }\n  }",
+    "description": "TODO"
+  }
+]

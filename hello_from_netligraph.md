@@ -1,1 +1,0 @@
-We did it! Now we can reuse this inside our Netlify site!

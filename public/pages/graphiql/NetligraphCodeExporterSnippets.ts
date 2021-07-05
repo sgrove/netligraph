@@ -10,16 +10,16 @@ import {
 } from '@sgrove/graphiql-code-exporter/lib/utils/index'
 
 import 'codemirror/mode/javascript/javascript'
+import * as GraphQL from 'graphql'
 import {
-  getNamedType,
-  OperationTypeNode,
-  typeFromAST,
+  GraphQLSchema,
   OperationDefinitionNode,
   FragmentDefinitionNode,
-  VariableDefinitionNode,
   TypeNode,
-  print,
+  OperationTypeNode,
 } from 'graphql'
+
+const { print } = GraphQL
 
 type Variables = { [key: string]: any }
 
@@ -44,6 +44,7 @@ type GenerateOptions = {
   context: Object
   operationDataList: Array<OperationData>
   options: OptionValues
+  schema: GraphQLSchema
 }
 
 type Snippet = {
@@ -66,27 +67,6 @@ const snippetOptions = [
     initial: false,
   },
 ]
-
-const comments = {
-  setup: `This setup is only needed once per application`,
-  nodeFetch: `Node doesn't implement fetch so we have to import it`,
-  graphqlError: `handle those errors like a pro`,
-  graphqlData: `do something great with this precious data`,
-  fetchError: `handle errors from fetch itself`,
-}
-
-function generateDocumentQuery(
-  operationDataList: Array<OperationData>
-): string {
-  const body = operationDataList
-    .map((operationData) => operationData.query)
-    .join('\n\n')
-    .trim()
-
-  return `const operationsDoc = \`
-${addLeftWhitespace(body, 2)}
-\`;`
-}
 
 const fetcherName = 'fetchGraphQL'
 
@@ -111,88 +91,62 @@ function operationFunctionName(operationData: OperationData) {
   return fnName
 }
 
-// Promise-based functions
-function promiseFetcher(serverUrl: string, headers: string): string {
-  return `function ${fetcherName}(operationsDoc, operationName, variables) {
-  return fetch(
-    "${serverUrl}",
-    {
-      method: "POST",${
-        headers
-          ? `
-      headers: {
-${addLeftWhitespace(headers, 8)}
-      },`
-          : ''
-      }
-      body: JSON.stringify({
-        query: operationsDoc,
-        variables: variables,
-        operationName: operationName
-      })
-    }
-  ).then((result) => result.json());
-}`
-}
-
 // TODO: Handle referenced fragments
 function fetcherFunctions(
-  operationDataList: Array<OperationData>,
-  useClientAuth: boolean
+  schema: GraphQLSchema,
+  operationDataList: Array<OperationData>
 ): string {
   return operationDataList
     .filter((operationData) => {
       return ['query', 'mutation', 'subscription'].includes(operationData.type)
     })
-    .map((operationData) => {
+    .map((rawOperationData) => {
+      const isSubscription = rawOperationData.type === 'subscription'
+
+      const operationData = rawOperationData
+
+      //@ts-ignore: Already filtered
       const fnName = operationFunctionName(operationData)
       const params = (
-        operationData.operationDefinition.variableDefinitions || []
+        rawOperationData.operationDefinition.variableDefinitions || []
       ).map((def) => def.variable.name.value)
       const variablesBody = params
         .map((param) => `"${param}": ${param}`)
         .join(', ')
-      const variables = `{${variablesBody}}`
+
+      const webhookUrlVariable = isSubscription
+        ? `, netligraphWebhookUrl: netligraphWebhookUrl`
+        : ''
+
+      const webhookIdParam = isSubscription ? ', webhookId' : ''
+
+      const variables = `{${variablesBody}${webhookUrlVariable}}`
+      //@ts-ignore: handle edge cases later
+      const query = print(operationData.operationDefinition)
+      const deployUrl = process.env.DEPLOY_URL || 'DEPLOY_URL'
+
+      const filename = `${operationData.name}`
+
+      const computeWebHookUrl = isSubscription
+        ? `const netligraphWebhookUrl = \`\${process.env.DEPLOY_URL}/.netlify/functions/${filename}?webhookId=\${webhookId}\`
+  `
+        : ''
 
       const clientAuth = `,
     accessToken: netligraph.accessToken`
 
-      return `function ${fnName}(netligraph, {${params.join(', ')}}) {
-  return netligraph.graph.send({
+      return `export function ${fnName}(netligraph, {${params.join(
+        ', '
+      )}${webhookIdParam}}) {
+  ${computeWebHookUrl}return netligraph.graph.send({
     query: \`
-${addLeftWhitespace(operationData.query, 6)}\`,
+${addLeftWhitespace(query, 6)}\`,
     operationName: '${operationData?.name}',
     variables: ${variables}${clientAuth}
   });
 }`
     })
     .join('\n\n')
-}
-
-// Async-await-based functions
-function asyncFetcher(serverUrl: string, headers: string): string {
-  return `async function ${fetcherName}(operationsDoc, operationName, variables) {
-  const result = await fetch(
-    "${serverUrl}",
-    {
-      method: "POST",${
-        headers
-          ? `
-      headers: {
-${addLeftWhitespace(headers, 8)}
-      },`
-          : ''
-      }
-      body: JSON.stringify({
-        query: operationsDoc,
-        variables: variables,
-        operationName: operationName
-      })
-    }
-  );
-
-  return await result.json();
-}`
 }
 
 const coercerFor = (type: TypeNode, name: string): string => {
@@ -214,12 +168,8 @@ const coercerFor = (type: TypeNode, name: string): string => {
 
 function asyncFetcherInvocation(
   operationDataList: Array<OperationData>,
-  vars: any,
-  pluckerStyle: 'get' | 'post',
-  useClientAuth: boolean
+  pluckerStyle: 'get' | 'post'
 ): string {
-  const netligraphClientName = useClientAuth ? 'netligraphClient' : 'netligraph'
-
   return operationDataList
     .filter((operationData) => {
       return ['query', 'mutation', 'subscription'].includes(operationData.type)
@@ -254,6 +204,8 @@ function asyncFetcherInvocation(
 
       let variableValidation = ''
 
+      let requiredVariableCount = 0
+
       if (
         !!namedOperationData.operationDefinition.variableDefinitions &&
         (namedOperationData.operationDefinition.variableDefinitions?.length ||
@@ -265,6 +217,8 @@ function asyncFetcherInvocation(
               print(def.type).endsWith('!') ? def.variable.name.value : null
             )
             .filter(Boolean)
+
+        requiredVariableCount = requiredVariableNames.length
 
         // TODO: Filter nullable variables
         const condition = requiredVariableNames
@@ -285,7 +239,7 @@ function asyncFetcherInvocation(
 
       return `${pluckerStyle === 'get' ? pluckers.get : pluckers.post}
 
-${variableValidation}
+${requiredVariableCount > 0 ? variableValidation : ''}
 
   const { errors: ${namedOperationData.name}Errors, data: ${
         namedOperationData.name
@@ -294,17 +248,16 @@ ${variableValidation}
       )}(netligraph, {${params.join(', ')}});
 
   if (${namedOperationData.name}Errors) {
-    console.error(${namedOperationData.name}Errors);
+    console.error(JSON.stringify(${namedOperationData.name}Errors, null, 2));
   }
 
-  console.log(${namedOperationData.name}Data);`
+  console.log(JSON.stringify(${namedOperationData.name}Data, null, 2));`
     })
     .join('\n\n')
 }
 
 function clientSideInvocations(
   operationDataList: Array<OperationData>,
-  vars: any,
   pluckerStyle: 'get' | 'post',
   useClientAuth: boolean
 ): string {
@@ -365,6 +318,66 @@ ${variables}
     .join('\n\n')
 }
 
+const subscriptionHandler = ({
+  filename,
+  operationData,
+}: {
+  filename: string
+  operationData: OperationData
+}) => {
+  return `/** Netlify serverless function:
+Save this snippet in \`netlify/functions/${filename}\`
+*/
+import { withGraph } from './NetligraphHandler'
+    
+export const handler = withGraph(async (event, { netligraph }) => { 
+  const payload =
+  netligraph.functions.parseAndVerify${operationData.name}(event)
+
+  if (!payload) {
+    return {
+      statusCode: 412,
+      data: JSON.stringify({
+        success: false,
+        error: 'Unable to verify payload signature',
+      }),
+    }
+  }
+  const { errors: ${operationData.name}Errors, data: ${operationData.name}Data } = payload;
+
+  if (${operationData.name}Errors) {
+    console.error(${operationData.name}Errors);
+  }
+
+  console.log(${operationData.name}Data);
+
+  /**
+  * If you want to unsubscribe from this webhook
+  * in order to stop receiving new events,
+  * simply return status 410, e.g.:
+  *
+  * return {
+  *   statusCode: 410,
+  *   body: JSON.stringify(null),
+  *   headers: {
+  *     'content-type': 'application/json',
+  *   },
+  * }
+  */
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      successProcessedIncomingWebhook: true,
+    }),
+    headers: {
+      'content-type': 'application/json',
+    },
+  }
+})
+`
+}
+
 // Snippet generation!
 export const netlifyFunctionSnippet: Snippet = {
   language: 'JavaScript',
@@ -372,7 +385,7 @@ export const netlifyFunctionSnippet: Snippet = {
   name: 'Netlify Function',
   options: snippetOptions,
   generate: (opts) => {
-    const { serverUrl, headers, options } = opts
+    const { headers, options } = opts
 
     const operationDataList = opts.operationDataList.map(
       (operationData, idx) => {
@@ -400,30 +413,37 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
       }
     )
 
-    const firstOperation = operationDataList[0]
+    const firstOperation = operationDataList.filter(
+      (operation) =>
+        operation.operationDefinition.kind === 'OperationDefinition'
+    )[0]
 
-    const graphqlQuery = generateDocumentQuery(operationDataList)
-    const vars = JSON.stringify({}, null, 2)
-    const headersValues = []
-    for (const header of Object.keys(headers)) {
-      if (header && headers[header]) {
-        headersValues.push(`"${header}": "${headers[header]}"`)
-      }
+    if (!firstOperation) {
+      return '// No operation found'
+    }
+
+    const filename = `${firstOperation.name}.js`
+
+    const isSubscription = firstOperation.type === 'subscription'
+
+    if (isSubscription) {
+      const result = subscriptionHandler({
+        filename,
+        operationData: firstOperation,
+      })
+
+      return result
     }
 
     const fetcherFunctionsDefs = fetcherFunctions(
-      operationDataList,
-      options.useClientAuth
+      opts.schema,
+      operationDataList
     )
 
     const fetcherInvocation = asyncFetcherInvocation(
       operationDataList,
-      vars,
-      options?.postHttpMethod === true ? 'post' : 'get',
-      options.useClientAuth
+      options?.postHttpMethod === true ? 'post' : 'get'
     )
-
-    const filename = `${firstOperation.name}.js`
 
     const netligraphClientName = options.useClientAuth
       ? 'netligraphClient'
@@ -451,7 +471,6 @@ ${operationData.name}Data: ${operationData.name}Data`
 
     const clientSideCalls = clientSideInvocations(
       operationDataList,
-      vars,
       options?.postHttpMethod === true ? 'post' : 'get',
       options.useClientAuth
     )

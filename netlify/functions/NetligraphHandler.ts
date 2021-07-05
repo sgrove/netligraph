@@ -5,7 +5,11 @@ import {
   HandlerResponse,
   HandlerEvent,
 } from '@netlify/functions'
-import { makeClient, makeDummyClient } from '../../lib/netligraph'
+import {
+  makeClient,
+  makeDummyClient,
+  verifySignature,
+} from '../../lib/netligraph'
 import * as Netligraph from '../../lib/netligraph'
 import { Database, readDatabase } from '../../lib/netlifyCliDevDatabases'
 

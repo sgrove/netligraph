@@ -12,9 +12,23 @@ import {
 import { VariableDefinitionNode } from 'graphql'
 import { DefinitionNode } from 'graphql'
 import { SerializedCommunityFunction } from '../lib/netlifyCliDevDatabases'
+// @ts-ignore: No typescript defs
+import { OneGraphAuth } from 'onegraph-auth'
 
 function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
   return value !== null && value !== undefined
+}
+
+/**
+ * Handle netlify dev live urls slightly better and hide more of OneGraph. Still needs
+ * a better "permanent" handle so CORS can be both safe and convenient.
+ */
+export const makeAuth = ({ appId }: { appId: string | undefined }) => {
+  return new OneGraphAuth({
+    appId: appId,
+    // oneGraphOrigin: window.location.href,
+    graphqlUrl: `${window.location.protocol}//${window.location.host}/graph`,
+  })
 }
 
 /**

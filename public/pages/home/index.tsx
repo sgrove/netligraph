@@ -19,6 +19,7 @@ import {
   GraphQLService,
   fetchCommunityFunctions,
   graphqlFetcher,
+  makeAuth,
 } from '../../frontendHelpers'
 import { buildASTSchema, parse } from 'graphql'
 import ReactMarkdown from 'react-markdown'
@@ -292,7 +293,7 @@ const FunctionPreview = ({
   isEnabled: boolean
 }) => {
   const [auth, setAuth] = useState<OneGraphAuth>(
-    new OneGraphAuth({
+    makeAuth({
       appId: ONEGRAPH_APP_ID,
     })
   )
@@ -500,7 +501,7 @@ const CommunityFunction = ({
 export default function Home() {
   const [token, setToken] = useState('')
   const [auth, setAuth] = useState<OneGraphAuth>(
-    new OneGraphAuth({
+    makeAuth({
       appId: ONEGRAPH_APP_ID,
     })
   )

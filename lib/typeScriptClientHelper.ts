@@ -1,14 +1,102 @@
 import { fetchFullSchema } from '../netlify/functions/netligraphMeta'
-import { buildASTSchema, parse } from 'graphql'
 import {
+  buildASTSchema,
+  parse,
+  FragmentDefinitionNode,
+  OperationDefinitionNode,
+  print,
+} from 'graphql'
+import {
+  patchSubscriptionWebhookField,
+  patchSubscriptionWebhookSecretField,
   typeScriptSignatureForOperation,
   typeScriptSignatureForOperationVariables,
 } from './graphQLHelpers'
-import { OperationDefinitionNode } from 'graphql'
-import { FragmentDefinitionNode } from 'graphql'
 import * as fs from 'fs'
-import { hydrateCommunityFunctionsDatabase } from './netlifyCliDevDatabases'
+import {
+  CommunityFunction,
+  hydrateCommunityFunctionsDatabase,
+} from './netlifyCliDevDatabases'
 import * as Prettier from 'prettier'
+import { GraphQLSchema } from 'graphql'
+
+const subscriptionParserName = (fn: CommunityFunction): string => {
+  return `parseAndVerify${fn.name}`
+}
+
+const subscriptionFunctionName = (fn: CommunityFunction): string => {
+  return `subscribeTo${fn.name}`
+}
+
+const generateSubscriptionFunction = (
+  fullSchema: GraphQLSchema,
+  operation: OperationDefinitionNode,
+  fragments: Array<FragmentDefinitionNode>,
+  fn: CommunityFunction
+): string => {
+  const patchedWithWebhookUrl = patchSubscriptionWebhookField({
+    schema: fullSchema,
+    definition: operation,
+  })
+
+  const patched = patchSubscriptionWebhookSecretField({
+    schema: fullSchema,
+    definition: patchedWithWebhookUrl,
+  })
+
+  // TODO: Don't allow unnamed operations as subscription
+  const filename = patched.name?.value || 'Unknown'
+
+  const body = print(patched)
+  const safeBody = body.replaceAll('${', '\\${')
+
+  const parsingFunctionReturnSignature = typeScriptSignatureForOperation(
+    fullSchema,
+    operation,
+    fragments as Array<FragmentDefinitionNode>
+  )
+
+  const variableNames = (operation.variableDefinitions || []).map(
+    (varDef) => varDef.variable.name.value
+  )
+
+  const variableSignature = typeScriptSignatureForOperationVariables(
+    variableNames,
+    fullSchema,
+    operation
+  )
+
+  return `const ${subscriptionFunctionName(fn)} = (
+    /**
+     * This will be available in your webhook handler as a query parameter.
+     * Use this to keep track of which subscription you're receiving
+     * events for.
+     */
+    netligraphWebhookId: string,
+    variables: ${variableSignature},
+    accessToken?: string | null
+    ) : void => {
+      const netligraphWebhookUrl = \`\${process.env.DEPLOY_URL}/.netlify/functions/${filename}?netligraphWebhookId=\${netligraphWebhookId}\`
+      const secret = process.env.NETLIGRAPH_WEBHOOK_SECRET
+
+      fetchOneGraph({
+      query: \`${safeBody}\`,
+      variables: {...variables, netligraphWebhookUrl: netligraphWebhookUrl, netligraphWebhookSecret: { hmacSha256Key: secret }},
+      accessToken: accessToken
+    })
+  }
+
+const ${subscriptionParserName(
+    fn
+  )} = (event: HandlerEvent) : null | ${parsingFunctionReturnSignature} => {
+  if (!verifyRequestSignature({ event: event })) {
+    console.warn("Unable to verify signature for ${filename}")
+    return null
+  }
+  
+  return JSON.parse(event.body || '{}')
+}`
+}
 
 export const generateTypeScriptClient = async (
   installedFunctionIds: Array<string>
@@ -31,13 +119,17 @@ export const generateTypeScriptClient = async (
     )
     const fragments = parsed.definitions.filter(
       (def) => def.kind === 'FragmentDefinition'
-    )
+    ) as Array<FragmentDefinitionNode>
 
     if (!operations) {
       return ''
     }
 
     const operation = operations[0] as OperationDefinitionNode
+
+    if (operation.operation === 'subscription') {
+      return generateSubscriptionFunction(fullSchema, operation, fragments, fn)
+    }
 
     const returnSignature = typeScriptSignatureForOperation(
       fullSchema,
@@ -70,21 +162,71 @@ export const generateTypeScriptClient = async (
 
   const exportedFunctionsObjectProperties = enabledFunctions
     .map((fn) => {
-      const jsDoc = (fn.description || '')
-        .replaceAll('*/', '')
-        .split('\n')
-        .join('\n* ')
+      const body = fn.definition
 
-      return `/**
-  * ${jsDoc}
-  */
-    ${fn.name}:${fn.name}`
+      const parsed = parse(body)
+      const operations = parsed.definitions.filter(
+        (def) => def.kind === 'OperationDefinition'
+      )
+
+      const operation = (operations || [])[0] as OperationDefinitionNode
+
+      if (!operation) {
+        return ''
+      }
+
+      const isSubscription = operation.operation === 'subscription'
+
+      if (isSubscription) {
+        const subscriptionFnName = subscriptionFunctionName(fn)
+        const parserFnName = subscriptionParserName(fn)
+
+        const jsDoc = (fn.description || '')
+          .replaceAll('*/', '')
+          .split('\n')
+          .join('\n* ')
+
+        return `/**
+        * ${jsDoc}
+        */
+          ${subscriptionFnName}:${subscriptionFnName},
+        /**
+         * Verify the event body is signed securely, and then parse the result.
+         */
+        ${parserFnName}:${parserFnName}`
+      } else {
+        const jsDoc = (fn.description || '')
+          .replaceAll('*/', '')
+          .split('\n')
+          .join('\n* ')
+
+        return `/**
+        * ${jsDoc}
+        */
+          ${fn.name}:${fn.name}`
+      }
     })
     .join(',\n  ')
 
   const source = `// GENERATED VIA \`netlify-cli dev\`, EDIT WITH CAUTION!
-import { fetchOneGraph } from "../netlify/functions/netligraph"
-  
+import { HandlerEvent } from '@netlify/functions'
+import { fetchOneGraph, verifySignature } from "./netligraph"
+
+export const verifyRequestSignature = ({ event }: { event: HandlerEvent }) => {
+  const secret = process.env.NETLIGRAPH_WEBHOOK_SECRET
+  const signature = event.headers['x-onegraph-signature']
+  const body = event.body
+
+  if (!secret) {
+    console.error(
+      'NETLIGRAPH_WEBHOOK_SECRET is not set, cannot verify incoming webhook request'
+    )
+    return false
+  }
+
+  return verifySignature({ secret, signature, body: body || '' })
+}
+
   ${functionDecls.join('\n\n')}
   
   const functions = {

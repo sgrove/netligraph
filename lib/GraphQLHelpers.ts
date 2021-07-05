@@ -443,3 +443,192 @@ export function typeScriptSignatureForOperation(
 
   return `${types}`
 }
+
+/**
+ * Doesn't patch e.g. fragments
+ */
+export function patchSubscriptionWebhookField({
+  schema,
+  definition,
+}: {
+  schema: GraphQLSchema
+  definition: OperationDefinitionNode
+}): OperationDefinitionNode {
+  if (definition.operation !== 'subscription') {
+    return definition
+  }
+
+  const subscriptionType = schema.getSubscriptionType()
+
+  if (!subscriptionType) {
+    return definition
+  }
+
+  const newSelections = definition.selectionSet.selections.map((selection) => {
+    if (selection.kind !== 'Field') return selection
+
+    const field = subscriptionType.getFields()[selection.name.value]
+    const fieldHasWebhookUrlArg = field.args.some(
+      (arg) => arg.name === 'webhookUrl'
+    )
+    const selectionHasWebhookUrlArg = selection.arguments?.some(
+      (arg) => arg.name.value === 'webhookUrl'
+    )
+
+    if (fieldHasWebhookUrlArg && !selectionHasWebhookUrlArg) {
+      return {
+        ...selection,
+        arguments: [
+          ...(selection.arguments || []),
+          {
+            kind: 'Argument',
+            name: {
+              kind: 'Name',
+              value: 'webhookUrl',
+            },
+            value: {
+              kind: 'Variable',
+              name: {
+                kind: 'Name',
+                value: 'netligraphWebhookUrl',
+              },
+            },
+          },
+        ],
+      }
+    }
+
+    return selection
+  })
+
+  const hasWebhookVariableDefinition = definition.variableDefinitions?.find(
+    (varDef) => varDef.variable.name.value === 'netligraphWebhookUrl'
+  )
+
+  const variableDefinitions = !!hasWebhookVariableDefinition
+    ? definition.variableDefinitions
+    : [
+        ...(definition.variableDefinitions || []),
+        {
+          kind: 'VariableDefinition',
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: {
+                kind: 'Name',
+                value: 'String',
+              },
+            },
+          },
+          variable: {
+            kind: 'Variable',
+            name: {
+              kind: 'Name',
+              value: 'netligraphWebhookUrl',
+            },
+          },
+        },
+      ]
+
+  return {
+    ...definition,
+    //@ts-ignore: Handle edge cases later
+    variableDefinitions,
+    //@ts-ignore: Handle edge cases later
+    selectionSet: { ...definition.selectionSet, selections: newSelections },
+  }
+}
+
+export function patchSubscriptionWebhookSecretField({
+  schema,
+  definition,
+}: {
+  schema: GraphQLSchema
+  definition: OperationDefinitionNode
+}): OperationDefinitionNode {
+  if (definition.operation !== 'subscription') {
+    return definition
+  }
+
+  const subscriptionType = schema.getSubscriptionType()
+
+  if (!subscriptionType) {
+    return definition
+  }
+
+  const newSelections = definition.selectionSet.selections.map((selection) => {
+    if (selection.kind !== 'Field') return selection
+
+    const field = subscriptionType.getFields()[selection.name.value]
+    const fieldHasWebhookSecretArg = field.args.some(
+      (arg) => arg.name === 'secret'
+    )
+    const selectionHasWebhookSecretArg = selection.arguments?.some(
+      (arg) => arg.name.value === 'secret'
+    )
+
+    if (fieldHasWebhookSecretArg && !selectionHasWebhookSecretArg) {
+      return {
+        ...selection,
+        arguments: [
+          ...(selection.arguments || []),
+          {
+            kind: 'Argument',
+            name: {
+              kind: 'Name',
+              value: 'secret',
+            },
+            value: {
+              kind: 'Variable',
+              name: {
+                kind: 'Name',
+                value: 'netligraphWebhookSecret',
+              },
+            },
+          },
+        ],
+      }
+    }
+
+    return selection
+  })
+
+  const hasWebhookVariableDefinition = definition.variableDefinitions?.find(
+    (varDef) => varDef.variable.name.value === 'netligraphWebhookSecret'
+  )
+
+  const variableDefinitions = !!hasWebhookVariableDefinition
+    ? definition.variableDefinitions
+    : [
+        ...(definition.variableDefinitions || []),
+        {
+          kind: 'VariableDefinition',
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: {
+                kind: 'Name',
+                value: 'OneGraphSubscriptionSecretInput',
+              },
+            },
+          },
+          variable: {
+            kind: 'Variable',
+            name: {
+              kind: 'Name',
+              value: 'netligraphWebhookSecret',
+            },
+          },
+        },
+      ]
+
+  return {
+    ...definition,
+    //@ts-ignore: Handle edge cases later
+    variableDefinitions,
+    //@ts-ignore: Handle edge cases later
+    selectionSet: { ...definition.selectionSet, selections: newSelections },
+  }
+}

@@ -1,5 +1,21 @@
 // GENERATED VIA `netlify-cli dev`, EDIT WITH CAUTION!
-import { fetchOneGraph } from '../netlify/functions/netligraph'
+import { HandlerEvent } from '@netlify/functions'
+import { fetchOneGraph, verifySignature } from './netligraph'
+
+export const verifyRequestSignature = ({ event }: { event: HandlerEvent }) => {
+  const secret = process.env.NETLIGRAPH_WEBHOOK_SECRET
+  const signature = event.headers['x-onegraph-signature']
+  const body = event.body
+
+  if (!secret) {
+    console.error(
+      'NETLIGRAPH_WEBHOOK_SECRET is not set, cannot verify incoming webhook request'
+    )
+    return false
+  }
+
+  return verifySignature({ secret, signature, body: body || '' })
+}
 
 const UpdateFileMutation = (
   variables: {
@@ -524,6 +540,92 @@ const ListIssues = (
   })
 }
 
+const subscribeToIncomingGitHubComment = (
+  /**
+   * This will be available in your webhook handler as a query parameter.
+   * Use this to keep track of which subscription you're receiving
+   * events for.
+   */
+  netligraphWebhookId: string,
+  variables: { repoOwner: string; repoName: string },
+  accessToken?: string | null
+): void => {
+  const netligraphWebhookUrl = `${process.env.DEPLOY_URL}/.netlify/functions/IncomingGitHubComment?netligraphWebhookId=${netligraphWebhookId}`
+  const secret = process.env.NETLIGRAPH_WEBHOOK_SECRET
+
+  fetchOneGraph({
+    query: `subscription IncomingGitHubComment($repoOwner: String!, $repoName: String!, $netligraphWebhookUrl: String!, $netligraphWebhookSecret: OneGraphSubscriptionSecretInput!) {
+  github(webhookUrl: $netligraphWebhookUrl, secret: $netligraphWebhookSecret) {
+    issueCommentEvent(input: {repoOwner: $repoOwner, repoName: $repoName}) {
+      action
+      comment {
+        id
+        body
+        bodyHTML
+        url
+      }
+    }
+  }
+}`,
+    variables: {
+      ...variables,
+      netligraphWebhookUrl: netligraphWebhookUrl,
+      netligraphWebhookSecret: { hmacSha256Key: secret },
+    },
+    accessToken: accessToken,
+  })
+}
+
+const parseAndVerifyIncomingGitHubComment = (
+  event: HandlerEvent
+): null | {
+  /**
+   * Any data retrieved by the function will be returned here
+   */
+  data: {
+    github: {
+      /**
+       * Subscribe to issue comments on a repository.
+       */
+      issueCommentEvent: {
+        /**
+         * The action that was performed.
+         */
+        action: 'CREATED' | 'EDITED' | 'DELETED'
+        /**
+         * The comment itself.
+         */
+        comment: {
+          id: string
+          /**
+           * The body as Markdown.
+           */
+          body: string
+          /**
+           * The body rendered to HTML.
+           */
+          bodyHTML: any
+          /**
+           * The HTTP URL for this issue comment
+           */
+          url: any
+        }
+      }
+    }
+  }
+  /**
+   * Any errors in the function will be returned here
+   */
+  errors: Array<any>
+} => {
+  if (!verifyRequestSignature({ event: event })) {
+    console.warn('Unable to verify signature for IncomingGitHubComment')
+    return null
+  }
+
+  return JSON.parse(event.body || '{}')
+}
+
 const functions = {
   /**
    * Create a single commit on the GitHub project `${repoOwner}/${repoName}` that `upserts` (creates a new file if it doesn't exist, or updates it if it does).
@@ -563,6 +665,14 @@ const functions = {
    * List issues (with pagination) on a GitHub repository
    */
   ListIssues: ListIssues,
+  /**
+   * Do it again!
+   */
+  subscribeToIncomingGitHubComment: subscribeToIncomingGitHubComment,
+  /**
+   * Verify the event body is signed securely, and then parse the result.
+   */
+  parseAndVerifyIncomingGitHubComment: parseAndVerifyIncomingGitHubComment,
 }
 
 export default functions

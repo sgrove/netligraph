@@ -4,10 +4,7 @@ import { withGraph } from './NetligraphHandler'
 export const handler = withGraph(async (event) => {
   const body = JSON.parse(event.body || '{}')
 
-  const result = upsertFunctionIntoLibrary(
-    body.function,
-    body.installedFunctionIds
-  )
+  const result = upsertFunctionIntoLibrary(body.function)
 
   return {
     statusCode: 200,

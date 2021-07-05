@@ -1,22 +1,19 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import Home from './pages/home/index'
-// import NotFound from './pages/_404'
-// import About from './pages/about/index'
 import GraphiQL from './pages/graphiql/index'
 import { useState } from 'react'
-// @ts-ignore: No typescript defs
-import { OneGraphAuth } from 'onegraph-auth'
+import { makeAuth } from './frontendHelpers'
 
 // @ts-ignore: dev demo
-window.demoAuth = new OneGraphAuth({
+window.demoAuth = makeAuth({
   appId: process.env.ONEGRAPH_APP_ID,
 })
 
 // @ts-ignore: dev demo
 window.demoAuthReload = () => {
   // @ts-ignore: dev demo
-  window.demoAuth = new OneGraphAuth({
+  window.demoAuth = makeAuth({
     appId: process.env.ONEGRAPH_APP_ID,
   })
 }
@@ -24,7 +21,7 @@ window.demoAuthReload = () => {
 function App() {
   const [state, setState] = useState(() => {
     return {
-      view: 'catalog',
+      view: 'graphiql',
       fullSchema: null,
     }
   })

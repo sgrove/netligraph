@@ -1,4 +1,5 @@
 import fetch from 'isomorphic-unfetch'
+import crypto from 'crypto'
 import {
   Database,
   readCommunityFunctionsDatabase,
@@ -153,8 +154,7 @@ export function makeDummyClient(): NetligraphLibrary {
 }
 
 export const editFunctionLibrary = async (
-  userFn: SerializedCommunityFunction,
-  installedFunctionIds: Array<string>
+  userFn: SerializedCommunityFunction
 ) => {
   const database = readDatabase()
   const communityFunctions = readCommunityFunctionsDatabase()
@@ -187,7 +187,7 @@ export const editFunctionLibrary = async (
   writeDatabase(newDatabase)
 
   const typeScriptClientSource = await generateTypeScriptClient(
-    installedFunctionIds
+    newDatabase.installedFunctionIds
   )
 
   writeTypeScriptClient(typeScriptClientSource)
@@ -242,4 +242,57 @@ export const writeNetlifyFunction = (newFunction: NewNetlifyFunction) => {
   })
 
   fs.writeFileSync(filename, formatted)
+}
+
+/**
+ * Subscription helpers
+ */
+export const verifySignature = ({
+  secret,
+  body,
+  signature,
+}: {
+  secret: string
+  body: string
+  signature: string | undefined
+}) => {
+  if (!signature) {
+    console.error('Missing signature')
+    return false
+  }
+
+  const sig: any = {}
+  for (const pair of signature.split(',')) {
+    const [k, v] = pair.split('=')
+    sig[k] = v
+  }
+
+  if (!sig.t || !sig.hmac_sha256) {
+    console.error('Invalid signature header')
+    return false
+  }
+
+  const hash = crypto
+    .createHmac('sha256', secret)
+    .update(sig.t)
+    .update('.')
+    .update(body)
+    .digest('hex')
+
+  if (
+    !crypto.timingSafeEqual(
+      Buffer.from(hash, 'hex'),
+      Buffer.from(sig.hmac_sha256, 'hex')
+    )
+  ) {
+    console.error('Invalid signature')
+    return false
+  }
+
+  if (parseInt(sig.t, 10) < Date.now() / 1000 - 300 /* 5 minutes */) {
+    console.error('Request is too old')
+    return false
+  }
+
+  return true
 }

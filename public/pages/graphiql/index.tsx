@@ -21,12 +21,13 @@ import {
   fetchIntegrationStatus,
   fetchSchemas,
   graphqlFetcher,
+  makeAuth,
   saveNetlifyFunctions,
 } from '../../frontendHelpers'
 import { OperationDefinitionNode } from 'graphql'
 import { SerializedCommunityFunction } from '../../../lib/netlifyCliDevDatabases'
 
-const DEFAULT_QUERY = `# shift-option/alt-click on a query below to jump to it in the explorer
+const DEFAULT_QUERY_ = `# shift-option/alt-click on a query below to jump to it in the explorer
 # option/alt-click on a field in the explorer to select all subfields
 
 # Be sure to enable the npm and GitHub integrations for this query
@@ -39,6 +40,19 @@ query AsanaProjects($name: String!) {
     }
   }
 }`
+
+const DEFAULT_QUERY = `subscription IncomingGitHubComment($repoOwner: String!, $repoName: String!) {
+  github {
+    issueCommentEvent(input: {repoOwner: $repoOwner, repoName: $repoName}) {
+      action
+      comment {
+        id
+        body
+      }
+    }
+  }
+}
+`
 
 //@ts-ignore
 window.testQuery = DEFAULT_QUERY
@@ -58,14 +72,14 @@ type GraphiQLComponentProps = {
   query: string
 }
 
-const oneGraphAuth = new OneGraphAuth({
+const oneGraphAuth = makeAuth({
   appId: process.env.ONEGRAPH_APP_ID,
 })
 
 const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
   const [state, setState] = React.useState<GraphiQLState>({
     explorerIsOpen: false,
-    codeExporterIsOpen: false,
+    codeExporterIsOpen: true,
     query: query,
     oneGraphAuth: oneGraphAuth,
     communityFunctions: [],
@@ -135,6 +149,7 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
       snippets={[netlifyFunctionSnippet]}
       query={state.query}
       codeMirrorTheme="neo"
+      schema={schema}
     />
   ) : null
 
@@ -168,7 +183,20 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
         return
       }
 
+      const isSubscription = operation.operation === 'subscription'
+
       const functionName = operation?.name?.value
+
+      /**
+       * If it's a subscription, we need to make sure the updated
+       * netligraph client function is available
+       */
+
+      if (isSubscription) {
+        // Push the current operation into the netligraph client library
+        // so users can start new webhooks with it
+        _handleSaveNetligraphLibraryFunction()
+      }
 
       if (source && functionName) {
         const result = saveNetlifyFunctions([

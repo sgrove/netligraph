@@ -11,7 +11,7 @@ import {
   patchSubscriptionWebhookSecretField,
   typeScriptSignatureForOperation,
   typeScriptSignatureForOperationVariables,
-} from './graphQLHelpers'
+} from './graphqlHelpers'
 import * as fs from 'fs'
 import {
   CommunityFunction,

@@ -8,7 +8,12 @@ git clone git@github.com:sgrove/netligraph.git
 cd netligraph
 npm i
 echo "ONEGRAPH_APP_ID=759b23db-c990-4426-b8e1-a4034e72c1ca" > .env
+echo "NETLIGRAPH_WEBHOOK_SECRET=super_secret_from_netlify" >> .env
 netlify dev
+
+# Or to run with webhook/subscription support:
+# netlify link
+# netlify dev --live
 ```
 
 **NB**: You should have `netlify-cli` installed at `netlify-cli/3.38.10` or higher

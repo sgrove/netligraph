@@ -79,7 +79,7 @@ const oneGraphAuth = makeAuth({
 const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
   const [state, setState] = React.useState<GraphiQLState>({
     explorerIsOpen: false,
-    codeExporterIsOpen: true,
+    codeExporterIsOpen: false,
     query: query,
     oneGraphAuth: oneGraphAuth,
     communityFunctions: [],
@@ -199,7 +199,7 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
       }
 
       if (source && functionName) {
-        const result = saveNetlifyFunctions([
+        saveNetlifyFunctions([
           {
             functionName: functionName,
             source: source,
@@ -258,7 +258,10 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
     }
 
     const description =
-      prompt('Docstring for new function', existingFunction?.description) || ''
+      prompt(
+        'Docstring for new netligraph library function',
+        existingFunction?.description
+      ) || ''
 
     newFunction.description = description
 

@@ -21,7 +21,7 @@ window.demoAuthReload = () => {
 function App() {
   const [state, setState] = useState(() => {
     return {
-      view: 'graphiql',
+      view: 'catalog',
       fullSchema: null,
     }
   })

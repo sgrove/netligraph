@@ -25,6 +25,7 @@ import { buildASTSchema, parse } from 'graphql'
 import ReactMarkdown from 'react-markdown'
 import { GraphQLSchema } from 'graphql'
 import { formInput } from './graphqlForm'
+import { OperationDefinitionNode } from 'graphql'
 
 export type CommunityFunction = {
   id: string
@@ -405,6 +406,25 @@ ${addLeftWhitespace(JSON.stringify(formVariables, null, 2), base.length)})`
   )
 }
 
+const isSubscriptionFunction = (fn: CommunityFunction) => {
+  const body = fn.definition
+
+  const parsed = parse(body)
+  const operations = parsed.definitions.filter(
+    (def) => def.kind === 'OperationDefinition'
+  )
+
+  const operation = (operations || [])[0] as OperationDefinitionNode
+
+  if (!operation) {
+    return ''
+  }
+
+  const isSubscription = operation.operation === 'subscription'
+
+  return isSubscription
+}
+
 const CommunityFunction = ({
   communityFunction,
   installedFunctionIds,
@@ -423,6 +443,14 @@ const CommunityFunction = ({
   const [showPreview, setShowPreview] = useState(false)
 
   const isEnabled = installedFunctionIds.includes(communityFunction.id)
+
+  /**
+   * Don't show a preview for subscriptions - we need to first figure
+   * out long-lived websocket connections to OneGraph through
+   * netligraph
+   */
+
+  const isSubscription = isSubscriptionFunction(communityFunction)
 
   return (
     <>
@@ -446,12 +474,16 @@ const CommunityFunction = ({
             <h2 className="plugin__name h3">{communityFunction.name}</h2>
             <span className="plugin__by">
               by @{communityFunction.id.split('/')[0] || 'unknown'}{' '}
-              <span
-                style={{ color: 'blue', cursor: 'pointer' }}
-                onClick={() => setShowPreview(true)}
-              >
-                Try
-              </span>
+              {isSubscription ? (
+                "[Can't try subscription during PoC]"
+              ) : (
+                <span
+                  style={{ color: 'blue', cursor: 'pointer' }}
+                  onClick={() => setShowPreview(true)}
+                >
+                  Try
+                </span>
+              )}
             </span>
             <div className="plugin__desc">
               <ReactMarkdown>{communityFunction.description}</ReactMarkdown>
@@ -517,7 +549,7 @@ export default function Home() {
     search: null,
     fullSchema: null,
     communityFunctions: [],
-    openServices: ['github'],
+    openServices: [],
     installedFunctionIds: [],
   })
 

@@ -301,6 +301,65 @@ const SetStatus = (
   })
 }
 
+const AsanaProjectMembers = (
+  variables: { name: string; projectId: string },
+  accessToken?: string | null
+): Promise<{
+  /**
+   * Any data retrieved by the function will be returned here
+   */
+  data: {
+    /**
+     * The root for Asana queries
+     */
+    asana: {
+      /**
+       * Get a single project.
+       */
+      project: {
+        /**
+         * Users who are members of this project.
+         */
+        members: Array<{
+          /**
+           * Name of the user.
+           */
+          name: string
+          /**
+           * The user's email address.
+           */
+          email: string
+          /**
+           * Globally unique identifier of the resource, as a string.
+           */
+          gid: string
+        }>
+      }
+    }
+  }
+  /**
+   * Any errors in the function will be returned here
+   */
+  errors: Array<any>
+}> => {
+  return fetchOneGraph({
+    query: `query AsanaProjectMembers($name: String!, $projectId: String!) {
+  asana {
+    project(gid: $projectId) {
+      members {
+        name
+        email
+        gid
+      }
+    }
+  }
+}
+`,
+    variables: variables,
+    accessToken: accessToken,
+  })
+}
+
 const ViewerInfo = (
   variables: {},
   accessToken?: string | null
@@ -492,6 +551,10 @@ const functions = {
    * Set your GitHub status
    */
   SetStatus: SetStatus,
+  /**
+   * List the members of a given project (by id) on Asana
+   */
+  AsanaProjectMembers: AsanaProjectMembers,
   /**
    * Get all the info about the logged in user!
    */

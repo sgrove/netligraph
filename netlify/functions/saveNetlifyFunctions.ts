@@ -1,4 +1,4 @@
-import { NewNetlifyFunction, writeNetlifyFunction } from './netligraph'
+import { NewNetlifyFunction, writeNetlifyFunction } from '../../lib/netligraph'
 import { withGraph } from './NetligraphHandler'
 
 export const handler = withGraph(async (event) => {

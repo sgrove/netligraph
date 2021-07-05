@@ -1,13 +1,13 @@
-import { fetchFullSchema } from './netligraphMeta'
+import { fetchFullSchema } from '../netlify/functions/netligraphMeta'
 import { buildASTSchema, parse } from 'graphql'
 import {
   typeScriptSignatureForOperation,
   typeScriptSignatureForOperationVariables,
-} from '../../lib/GraphQLHelpers'
+} from './graphQLHelpers'
 import { OperationDefinitionNode } from 'graphql'
 import { FragmentDefinitionNode } from 'graphql'
 import * as fs from 'fs'
-import { hydrateCommunityFunctionsDatabase } from '../../lib/netlifyCliDevDatabases'
+import { hydrateCommunityFunctionsDatabase } from './netlifyCliDevDatabases'
 import * as Prettier from 'prettier'
 
 export const generateTypeScriptClient = async (

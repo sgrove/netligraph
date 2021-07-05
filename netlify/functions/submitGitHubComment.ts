@@ -2,7 +2,7 @@
  * Shows how to send arbitrary GraphQL queries for those
  * who are comfortable with this level of power.
  */
-import { NetligraphLibrary } from './netligraph'
+import { NetligraphLibrary } from '../../lib/netligraph'
 import { withGraph } from './NetligraphHandler'
 
 function executeSubmitComment(

@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import { DefinitionNode, parse } from 'graphql'
 import { GraphQLSchema } from 'graphql'
 import { notEmpty } from './utils'
-import { gatherVariableDefinitions } from './GraphQLHelpers'
+import { gatherVariableDefinitions } from './graphQLHelpers'
 
 /**
  * Simulate the values that Netlify would store in a full integration:

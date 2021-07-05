@@ -7,13 +7,13 @@ import {
   serviceEnabled,
   writeCommunityFunctionsDatabase,
   writeDatabase,
-} from '../../lib/netlifyCliDevDatabases'
-import CommunityFunctions from '../../lib/netligraphCommunityFunctions'
+} from './netlifyCliDevDatabases'
+import CommunityFunctions from './netligraphCommunityFunctions'
 import {
   generateTypeScriptClient,
   writeTypeScriptClient,
 } from './typeScriptClientHelper'
-import { distinct } from '../../lib/utils'
+import { distinct } from './utils'
 import * as fs from 'fs'
 import * as Prettier from 'prettier'
 

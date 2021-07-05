@@ -23,7 +23,7 @@ import {
 import { buildASTSchema, parse } from 'graphql'
 import ReactMarkdown from 'react-markdown'
 import { GraphQLSchema } from 'graphql'
-import { formInput } from './GraphQLForm'
+import { formInput } from './graphqlForm'
 
 export type CommunityFunction = {
   id: string
@@ -379,7 +379,6 @@ ${addLeftWhitespace(JSON.stringify(formVariables, null, 2), base.length)})`
         <div
           style={{
             lineHeight: '1.5em',
-            height: '4.5em',
             fontFamily: 'monospace',
           }}
           className="card card-settings"

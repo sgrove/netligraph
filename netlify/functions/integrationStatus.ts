@@ -3,7 +3,7 @@ import {
   readDatabase,
   writeDatabase,
 } from '../../lib/netlifyCliDevDatabases'
-import { checkServices } from './netligraph'
+import { checkServices } from '../../lib/netligraph'
 import { withGraph } from './NetligraphHandler'
 
 export const handler = withGraph(async (event, { netligraph }) => {

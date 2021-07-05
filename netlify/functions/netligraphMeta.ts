@@ -5,7 +5,7 @@
  * and DX
  */
 
-import { fetchOneGraph } from './netligraph'
+import { fetchOneGraph } from '../../lib/netligraph'
 import {
   buildClientSchema,
   getIntrospectionQuery,

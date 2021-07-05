@@ -1,9 +1,9 @@
 import { withGraph } from './NetligraphHandler'
-import { checkServices } from './netligraph'
+import { checkServices } from '../../lib/netligraph'
 import {
   generateTypeScriptClient,
   writeTypeScriptClient,
-} from './typeScriptClientHelper'
+} from '../../lib/typeScriptClientHelper'
 import {
   Database,
   readCommunityFunctionsDatabase,

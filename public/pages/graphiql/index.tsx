@@ -13,7 +13,7 @@ import CodeExporter from '@sgrove/graphiql-code-exporter'
 // @ts-ignore: it's css.
 import '@sgrove/graphiql-code-exporter/CodeExporter.css'
 // @ts-ignore: No typescript defs
-import { netlifyFunctionSnippet } from './NetligraphCodeExporterSnippets'
+import { netlifyFunctionSnippet } from './netligraphCodeExporterSnippets'
 import { CommunityFunction, Database } from '../home'
 import {
   editFunctionLibrary,

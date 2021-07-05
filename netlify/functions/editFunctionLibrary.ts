@@ -1,4 +1,4 @@
-import { editFunctionLibrary as upsertFunctionIntoLibrary } from './netligraph'
+import { editFunctionLibrary as upsertFunctionIntoLibrary } from '../../lib/netligraph'
 import { withGraph } from './NetligraphHandler'
 
 export const handler = withGraph(async (event) => {

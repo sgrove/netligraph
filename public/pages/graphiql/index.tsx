@@ -14,89 +14,43 @@ import CodeExporter from '@sgrove/graphiql-code-exporter'
 import '@sgrove/graphiql-code-exporter/CodeExporter.css'
 // @ts-ignore: No typescript defs
 import { netlifyFunctionSnippet } from './NetligraphCodeExporterSnippets'
-import { Database } from '../home'
+import { CommunityFunction, Database } from '../home'
 import {
+  editFunctionLibrary,
+  fetchCommunityFunctions,
   fetchIntegrationStatus,
+  fetchSchemas,
+  graphqlFetcher,
   saveNetlifyFunctions,
 } from '../../frontendHelpers'
-
-type GraphQLRequest = {
-  query: string
-  operationName?: string
-  doc_id?: string
-  variables?: any
-}
-const schemaPath = '/.netlify/functions/netligraphMeta'
-
-async function fetchSchema() {
-  const response = await fetch(schemaPath, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-  })
-  const responseBody = await response.text()
-
-  try {
-    return JSON.parse(responseBody)
-  } catch (e) {
-    console.warn(e)
-    return responseBody
-  }
-}
-
-async function fetcher(auth: any, params: GraphQLRequest) {
-  const response = await fetch('/graph', {
-    method: 'POST',
-    headers: {
-      ...auth?.authHeaders(),
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(params),
-  })
-  const responseBody = await response.text()
-
-  try {
-    return JSON.parse(responseBody)
-  } catch (e) {
-    return responseBody
-  }
-}
+import { OperationDefinitionNode } from 'graphql'
+import { SerializedCommunityFunction } from '../../../lib/netlifyCliDevDatabases'
 
 const DEFAULT_QUERY = `# shift-option/alt-click on a query below to jump to it in the explorer
 # option/alt-click on a field in the explorer to select all subfields
 
 # Be sure to enable the npm and GitHub integrations for this query
-query npmPackage($name: String!) {
-  npm {
-    package(name: $name) {
-      name
-      homepage
-      downloads {
-        lastMonth {
-          count
-        }
-      }
-      repository {
-        sourceRepository {
-          ... on GitHubRepository {
-            id
-            name
-            description
-          }
-        }
+query AsanaProjects($name: String!) {
+  asana {
+    projects {
+      nodes {
+        name
       }
     }
   }
 }`
+
+//@ts-ignore
+window.testQuery = DEFAULT_QUERY
 
 type GraphiQLState = {
   explorerIsOpen: boolean
   codeExporterIsOpen: boolean
   query: string
   oneGraphAuth: any
+  communityFunctions: Array<CommunityFunction>
+  installedFunctionIds: Array<string>
+  selectedFunctionId: null | string
 }
 
 type GraphiQLComponentProps = {
@@ -111,9 +65,12 @@ const oneGraphAuth = new OneGraphAuth({
 const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
   const [state, setState] = React.useState<GraphiQLState>({
     explorerIsOpen: false,
-    codeExporterIsOpen: true,
+    codeExporterIsOpen: false,
     query: query,
     oneGraphAuth: oneGraphAuth,
+    communityFunctions: [],
+    installedFunctionIds: [],
+    selectedFunctionId: null,
   })
 
   React.useEffect(() => {
@@ -124,80 +81,37 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
         state.oneGraphAuth._accessToken.accessToken = database.accessToken
       }
 
+      setState((oldState) => ({
+        ...oldState,
+        installedFunctionIds: database.installedFunctionIds,
+      }))
+
       state.oneGraphAuth._accessToken = { accessToken: database.accessToken }
     })
   }, [])
 
-  const _graphiql = React.useRef<GraphiQL>(null)
-
-  const _handleInspectOperation = (
-    cm: any,
-    mousePos: { line: Number; ch: Number }
-  ) => {
-    const parsedQuery = parse(state.query || '')
-
-    if (!parsedQuery) {
-      console.error("Couldn't parse query document")
-      return null
-    }
-
-    var token = cm.getTokenAt(mousePos)
-    var start = { line: mousePos.line, ch: token.start }
-    var end = { line: mousePos.line, ch: token.end }
-    var relevantMousePos = {
-      start: cm.indexFromPos(start),
-      end: cm.indexFromPos(end),
-    }
-
-    var position = relevantMousePos
-
-    var def = parsedQuery.definitions.find((definition) => {
-      if (!definition.loc) {
-        console.warn('Missing location information for definition')
-        return false
-      }
-
-      const { start, end } = definition.loc
-      return start <= position.start && end >= position.end
-    })
-
-    if (!def) {
-      console.error('Unable to find definition corresponding to mouse position')
-      return null
-    }
-
-    var operationKind =
-      def.kind === 'OperationDefinition'
-        ? def.operation
-        : def.kind === 'FragmentDefinition'
-        ? 'fragment'
-        : 'unknown'
-
-    var operationName =
-      def.kind === 'OperationDefinition' && !!def.name
-        ? def.name.value
-        : def.kind === 'FragmentDefinition' && !!def.name
-        ? def.name.value
-        : 'unknown'
-
-    var selector = `.graphiql-explorer-root #${operationKind}-${operationName}`
-
-    var el = document.querySelector(selector)
-    el && el.scrollIntoView()
-  }
-
   React.useEffect(() => {
-    const editor = _graphiql.current?.getQueryEditor()
-    if (!editor) {
-      return
-    }
+    fetchSchemas()
+      .then((result) => {
+        if (!result.schema) {
+          return
+        }
 
-    editor.setOption('extraKeys', {
-      // @ts-ignore: Unreachable code error
-      ...(editor.options.extraKeys || {}),
-      'Shift-Alt-LeftClick': _handleInspectOperation,
-    })
-  }, [_graphiql.current])
+        const sdlSchema = buildASTSchema(parse(result.fullSchema))
+        const fullSchema = sdlSchema
+        setState((oldState) => ({ ...oldState, fullSchema: sdlSchema }))
+
+        return fetchCommunityFunctions(fullSchema)
+      })
+      .then((functions) => {
+        setState((oldState) => ({
+          ...oldState,
+          communityFunctions: functions || [],
+        }))
+      })
+  }, [])
+
+  const _graphiql = React.useRef<GraphiQL>(null)
 
   const _handleToggleExplorer = () => {
     setState((oldState) => ({
@@ -219,20 +133,16 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
     <CodeExporter
       hideCodeExporter={_handleToggleCodeExporter}
       snippets={[netlifyFunctionSnippet]}
-      serverUrl={'/graph'}
-      context={{
-        appId: '/* APP_ID */',
-      }}
-      headers={{
-        Authorization: 'Bearer ',
-      }}
       query={state.query}
-      // Optional if you want to use a custom theme
       codeMirrorTheme="neo"
     />
   ) : null
 
-  // Another hack to make the demo even slicker
+  /**
+   * Save the current operation (state.query) as a Netlify
+   * function with http handler and (primitive for the PoC)
+   * variable coercion
+   */
   const _handleSaveNetlifyFunctions = async () => {
     const codeMirror = document.querySelector(
       '.graphiql-code-exporter .CodeMirror'
@@ -244,18 +154,21 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
     // @ts-ignore: I think innerText is a thing.
     const source = codeMirror.innerText
 
-    if (!source || !source.trim()) {
+    if (!source?.trim()) {
       return
     }
 
     try {
       const parsed = parse(state.query)
-      const functionName = parsed.definitions.find(
-        (operation) => {
-          return operation.kind === 'OperationDefinition'
-        }
-        // @ts-ignore: demo time
-      )?.name?.value
+      const operation = parsed.definitions.find((operation) => {
+        return operation.kind === 'OperationDefinition'
+      })
+
+      if (!operation || operation.kind !== 'OperationDefinition') {
+        return
+      }
+
+      const functionName = operation?.name?.value
 
       if (source && functionName) {
         const result = saveNetlifyFunctions([
@@ -264,13 +177,133 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
             source: source,
           },
         ])
-
-        console.debug('Result of saving netlify function: ', result)
       }
     } catch (e) {
       console.error('Error parsing GraphQL doc and saving function: ', e)
     }
   }
+
+  /**
+   * Save the current operation (state.query) as a typescript
+   * function that's available in Netlify functions under
+   * netligraph.function.<functionName>
+   */
+  const _handleSaveNetligraphLibraryFunction = async () => {
+    const parsedQuery = parse(state.query || '')
+
+    if (!parsedQuery) {
+      console.error("Couldn't parse query document")
+      return null
+    }
+
+    // @ts-ignore
+    const operation: OperationDefinitionNode | undefined =
+      parsedQuery.definitions.find((op) => op.kind === 'OperationDefinition')
+
+    if (!operation) {
+      console.error("Couldn't find operation definition for function")
+      return null
+    }
+
+    const username = 'sgrove'
+
+    let newFunction: SerializedCommunityFunction
+
+    const existingFunction = state.communityFunctions.find(
+      (fn) => fn.id === state.selectedFunctionId
+    )
+
+    if (existingFunction) {
+      newFunction = {
+        id: existingFunction.id,
+        definition: state.query,
+        description: existingFunction.description,
+      }
+    } else {
+      const name = operation.name?.value || 'unknown'
+
+      newFunction = {
+        id: `${username}/${name}`,
+        definition: state.query,
+        description: '',
+      }
+    }
+
+    const description =
+      prompt('Docstring for new function', existingFunction?.description) || ''
+
+    newFunction.description = description
+
+    editFunctionLibrary(newFunction)
+
+    setState((oldState) => ({
+      ...oldState,
+      installedFunctionIds: [
+        ...oldState.installedFunctionIds,
+        newFunction.id,
+      ].filter((v, i, a) => a.indexOf(v) === i),
+      selectedFunctionId: newFunction.id,
+    }))
+  }
+
+  const installedFunctions = state.communityFunctions.filter((fn) =>
+    state.installedFunctionIds.includes(fn.id)
+  )
+
+  const libraryOptions =
+    installedFunctions.length === 0 ? null : (
+      <GraphiQL.Menu label="Your library" title="Your library">
+        <GraphiQL.MenuItem
+          key={'new'}
+          label={'<new function>'}
+          title={'Create new function'}
+          onSelect={() => {
+            setState((oldState) => ({
+              ...oldState,
+              selectedFunctionId: null,
+              query: DEFAULT_QUERY,
+            }))
+          }}
+        />
+
+        {installedFunctions.map((fn) => {
+          return (
+            <GraphiQL.MenuItem
+              key={fn.id}
+              label={fn.name}
+              title={'Edit ' + fn.name}
+              onSelect={() => {
+                setState((oldState) => ({
+                  ...oldState,
+                  selectedFunctionId: fn.id,
+                  query: fn.definition,
+                }))
+              }}
+            />
+          )
+        })}
+      </GraphiQL.Menu>
+    )
+
+  let parsedQuery
+
+  try {
+    parsedQuery = parse(state.query)
+  } catch (e) {
+    console.error(e)
+  }
+
+  const saveFunctionButton = parsedQuery ? (
+    <GraphiQL.Button
+      onClick={() => _handleSaveNetligraphLibraryFunction()}
+      label={state.selectedFunctionId ? 'Update function' : 'Create function'}
+      title={
+        state.selectedFunctionId
+          ? 'Update this function in your netligraph client'
+          : 'Add a new function to your netligraph client'
+      }
+    />
+  ) : null
 
   return (
     <div
@@ -289,7 +322,7 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
       />
       <GraphiQL
         ref={_graphiql}
-        fetcher={(params) => fetcher(state.oneGraphAuth, params)}
+        fetcher={(params) => graphqlFetcher(state.oneGraphAuth, params)}
         schema={schema}
         query={state.query}
         onEditQuery={_handleEditQuery}
@@ -310,11 +343,6 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
             label="Explorer"
             title="Toggle Explorer"
           />
-          <GraphiQL.Button
-            onClick={_handleToggleCodeExporter}
-            label="Code Exporter"
-            title="Toggle Code Exporter"
-          />
           {state.codeExporterIsOpen ? (
             <GraphiQL.Button
               onClick={_handleSaveNetlifyFunctions}
@@ -322,6 +350,13 @@ const GraphiQLComponent = ({ schema, query }: GraphiQLComponentProps) => {
               title="Toggle Code Exporter"
             />
           ) : null}
+          <GraphiQL.Button
+            onClick={_handleToggleCodeExporter}
+            label="Code Exporter"
+            title="Toggle Code Exporter"
+          />
+          {libraryOptions}
+          {saveFunctionButton}
         </GraphiQL.Toolbar>
       </GraphiQL>
       {codeExporter}
@@ -333,7 +368,7 @@ const Component = () => {
   const [schema, setSchema] = React.useState<GraphQLSchema | null>(() => null)
 
   React.useEffect(() => {
-    fetchSchema().then((result) => {
+    fetchSchemas().then((result) => {
       if (!result.schema) {
         return
       }

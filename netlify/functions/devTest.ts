@@ -1,9 +1,8 @@
 import { withGraph } from './NetligraphHandler'
-const path = require('path')
 
-export const handler = withGraph(async () => {
+export const handler = withGraph(async (event, { netligraph }) => {
   const data = {
-    cwd: process.cwd(),
+    success: true,
   }
 
   return {

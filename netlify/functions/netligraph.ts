@@ -1,99 +1,28 @@
 import fetch from 'isomorphic-unfetch'
+import {
+  Database,
+  readCommunityFunctionsDatabase,
+  readDatabase,
+  SerializedCommunityFunction,
+  serviceEnabled,
+  writeCommunityFunctionsDatabase,
+  writeDatabase,
+} from '../../lib/netlifyCliDevDatabases'
+import CommunityFunctions from '../../lib/netligraphCommunityFunctions'
+import {
+  generateTypeScriptClient,
+  writeTypeScriptClient,
+} from './typeScriptClientHelper'
+import { distinct } from '../../lib/utils'
 import * as fs from 'fs'
-
-/**
- * Simulate the values that Netlify would store in a full integration:
- * 1. List of enabled services
- * 2. OneGraph access token
- * 3. Services accessible via the access token we have
- */
-
-export type Database = {
-  accessToken: string | null
-  manuallyEnabledServices: Array<string>
-  loggedInServices: Array<string>
-  serviceBearerTokens: Record<string, string | null>
-}
-
-const databaseFilename = 'tmp/database.json'
-
-export const writeDatabase = (fullDatabase: Database) => {
-  fs.writeFileSync(databaseFilename, JSON.stringify(fullDatabase, null, 2))
-}
-
-export const readDatabase = (): Database => {
-  try {
-    const database = fs.readFileSync(databaseFilename).toString()
-    return JSON.parse(database)
-  } catch {
-    return {
-      accessToken: null,
-      manuallyEnabledServices: [],
-      loggedInServices: [],
-      serviceBearerTokens: {},
-    }
-  }
-}
+import * as Prettier from 'prettier'
 
 /**
  * Netligraph plumbing
  */
-type fetchGitHubIssuesProps = {
-  owner: string
-  name: string
-  first?: number | undefined
-  after?: string | undefined
-}
-
-const fetchGitHubIssues = (
-  netligraph: Netligraph,
-  variables: fetchGitHubIssuesProps
-) => {
-  return netligraph.graph.send({
-    query: `query GitHubIssues(  
-  $owner: String!
-  $name: String!
-  $first: Int = 10
-  $after: String
-) {
-  gitHub {
-    repository(name: $name, owner: $owner) {
-      issues(
-        first: $first
-        orderBy: { field: CREATED_AT, direction: DESC }
-        after: $after
-      ) {
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-        edges {
-          node {
-            title
-            body
-            state
-            url
-          }
-        }
-      }
-    }
-  }
-}`,
-    variables,
-    operationName: 'GitHubIssues',
-  })
-}
-
 interface GitHubEnabledClient {
   enabled: true
   authToken: string | null
-  fetchRepositoryIssues: (
-    netligraph: Netligraph,
-    variables: fetchGitHubIssuesProps
-  ) => Promise<GraphQLResponse>
 }
 
 interface GitHubDisabledClient {
@@ -118,7 +47,8 @@ type FetchOneGraphProps = {
   accessToken?: string | undefined | null
 }
 
-export type Netligraph = {
+export type NetligraphLibrary = {
+  enabled: boolean
   appId: string
   gitHub: GitHubClient
   npm: NpmClient
@@ -126,6 +56,7 @@ export type Netligraph = {
     send: (params: FetchOneGraphProps) => Promise<GraphQLResponse>
   }
   accessToken: string | null
+  functions: typeof CommunityFunctions
 }
 
 type MakeClientProps = {
@@ -158,15 +89,7 @@ export async function fetchOneGraph({
   return result.json()
 }
 
-const serviceEnabled = (database: Database, service: string) => {
-  const safeService = service.toLocaleUpperCase()
-  return (
-    database.loggedInServices.includes(safeService) ||
-    database.manuallyEnabledServices.includes(safeService)
-  )
-}
-
-export function makeClient(props: MakeClientProps): Netligraph {
+export function makeClient(props: MakeClientProps): NetligraphLibrary {
   const database = readDatabase()
 
   const fetcher = (params: FetchOneGraphProps) =>
@@ -178,6 +101,7 @@ export function makeClient(props: MakeClientProps): Netligraph {
     })
 
   return {
+    enabled: true,
     appId: props.appId,
     graph: {
       send: fetcher,
@@ -188,8 +112,134 @@ export function makeClient(props: MakeClientProps): Netligraph {
     gitHub: {
       authToken: database.serviceBearerTokens.GITHUB,
       enabled: serviceEnabled(database, 'gitHub'),
-      fetchRepositoryIssues: fetchGitHubIssues,
     },
+    functions: CommunityFunctions,
     accessToken: props.accessToken,
   }
+}
+
+/**
+ * Provide a dummy netligraph client that logs out warnings when it's used.
+ * This way a user doesn't have to check if it's enabled in their handlers.
+ */
+export function makeDummyClient(): NetligraphLibrary {
+  return {
+    enabled: false,
+    appId: 'DUMMY_VALUE',
+    graph: {
+      send: async (unused) => {
+        console.warn(
+          'Skipping integration call because Netligraph is not enabled, please visit the Netlify dashboard for this app'
+        )
+
+        const response: GraphQLResponse = {
+          data: null,
+          errors: [],
+        }
+
+        return response
+      },
+    },
+    npm: {
+      enabled: false,
+    },
+    gitHub: {
+      enabled: false,
+    },
+    // @ts-ignore: This is fine for the PoC, but the types would need to be improved for the production release
+    functions: {},
+    accessToken: null,
+  }
+}
+
+export const editFunctionLibrary = async (
+  userFn: SerializedCommunityFunction,
+  installedFunctionIds: Array<string>
+) => {
+  const database = readDatabase()
+  const communityFunctions = readCommunityFunctionsDatabase()
+
+  let replacedFunction = false
+
+  let newCommunityFunctions = communityFunctions.map((fn) => {
+    if (fn.id === userFn.id) {
+      replacedFunction = true
+      return userFn
+    }
+
+    return fn
+  })
+
+  if (!replacedFunction) {
+    newCommunityFunctions = [...newCommunityFunctions, userFn]
+  }
+
+  writeCommunityFunctionsDatabase(newCommunityFunctions)
+
+  const newDatabase: Database = {
+    ...database,
+    installedFunctionIds: distinct([
+      ...database.installedFunctionIds,
+      userFn.id,
+    ]),
+  }
+
+  writeDatabase(newDatabase)
+
+  const typeScriptClientSource = await generateTypeScriptClient(
+    installedFunctionIds
+  )
+
+  writeTypeScriptClient(typeScriptClientSource)
+
+  const result = {
+    communityFunctions: newCommunityFunctions,
+    database: newDatabase,
+  }
+
+  return result
+}
+
+export const FindLoggedInServicesQuery = `query FindLoggedInServicesQuery {
+  me {
+    serviceMetadata {
+      loggedInServices {
+        friendlyServiceName
+        service
+        isLoggedIn
+        bearerToken
+      }
+    }
+  }
+}`
+
+export const checkServices = ({
+  accessToken,
+}: {
+  accessToken: string | null
+}) => {
+  return fetchOneGraph({
+    accessToken: accessToken,
+    query: FindLoggedInServicesQuery,
+    operationName: 'FindLoggedInServicesQuery',
+    variables: {},
+  })
+}
+
+export type NewNetlifyFunction = {
+  functionName: string
+  source: string
+}
+
+export const writeNetlifyFunction = (newFunction: NewNetlifyFunction) => {
+  const filename = `netlify/functions/${newFunction.functionName}.ts`
+  const source = newFunction.source.replaceAll('\u200b', '')
+  const formatted = Prettier.format(source, {
+    tabWidth: 2,
+    semi: false,
+    singleQuote: true,
+    parser: 'babel-ts',
+  })
+
+  fs.writeFileSync(filename, formatted)
 }

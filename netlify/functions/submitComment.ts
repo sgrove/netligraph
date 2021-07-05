@@ -1,11 +1,12 @@
-/** Netlify serverless function:
-Save this snippet in `netlify/functions/submitComment.js`
-*/
-import { Netligraph } from './netligraph'
+/**
+ * Shows how to send arbitrary GraphQL queries for those
+ * who are comfortable with this level of power.
+ */
+import { NetligraphLibrary } from './netligraph'
 import { withGraph } from './NetligraphHandler'
 
 function executeSubmitComment(
-  netligraph: Netligraph,
+  netligraph: NetligraphLibrary,
   { body }: { body: string }
 ) {
   return netligraph.graph.send({
@@ -31,13 +32,6 @@ function executeSubmitComment(
 }
 
 export const handler = withGraph(async (event, { netligraph }) => {
-  if (!netligraph) {
-    return {
-      statusCode: 400,
-      body: 'Please enable your netligraph integration',
-    }
-  }
-
   const eventBodyJson = JSON.parse(event.body || '{}')
 
   const body = eventBodyJson?.body

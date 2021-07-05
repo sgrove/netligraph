@@ -1,28 +1,12 @@
+import { NewNetlifyFunction, writeNetlifyFunction } from './netligraph'
 import { withGraph } from './NetligraphHandler'
-import * as fs from 'fs'
 
-type NewNetlifyFunction = {
-  functionName: string
-  source: string
-}
-
-const writeNetlifyFunction = (newFunction: NewNetlifyFunction) => {
-  const filename = `netlify/functions/${newFunction.functionName}.ts`
-  fs.writeFileSync(filename, newFunction.source.replaceAll('\u200b', ''))
-}
-
-export const handler = withGraph(async (event, { netligraph }) => {
-  if (!netligraph) {
-    return {
-      statusCode: 400,
-      body: 'Please enable the your integrations',
-    }
-  }
+export const handler = withGraph(async (event) => {
   const body = JSON.parse(event.body || '{}')
 
-  const functions: Array<NewNetlifyFunction> = body.functions || []
+  const functions = body.functions || []
 
-  functions.forEach((newFunction) => {
+  functions.forEach((newFunction: NewNetlifyFunction) => {
     writeNetlifyFunction(newFunction)
   })
 

@@ -259,15 +259,21 @@ function asyncFetcherInvocation(
         (namedOperationData.operationDefinition.variableDefinitions?.length ||
           0) > 0
       ) {
-        const variableNames =
-          namedOperationData.operationDefinition.variableDefinitions.map(
-            (def) => def.variable.name.value
-          )
+        const requiredVariableNames =
+          namedOperationData.operationDefinition.variableDefinitions
+            .map((def) =>
+              print(def.type).endsWith('!') ? def.variable.name.value : null
+            )
+            .filter(Boolean)
 
-        // TODO: Handle booleans and filter nullable variables
-        const condition = variableNames.map((name) => '!' + name).join(' || ')
+        // TODO: Filter nullable variables
+        const condition = requiredVariableNames
+          .map((name) => `${name} === undefined || ${name} === null`)
+          .join(' || ')
 
-        const message = variableNames.map((name) => `\`${name}\``).join(', ')
+        const message = requiredVariableNames
+          .map((name) => `\`${name}\``)
+          .join(', ')
 
         variableValidation = `  if (${condition}) {
     return {
@@ -460,12 +466,6 @@ ${fetcherFunctionsDefs}
 export const handler = withGraph(async (event, { ${
       options.useClientAuth ? 'netligraph: ' : ''
     }${netligraphClientName}  }) => {
-  if (!${netligraphClientName}) {
-    return {
-      statusCode: 400,
-      body: 'Please enable your netligraph integration',
-    }
-  }
   ${netligraphClient}
   const eventBodyJson = JSON.parse(event.body || "{}");
 

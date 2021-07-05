@@ -1,17 +1,24 @@
-// To be implemented on Netlify's side so that it's not publicly accessible (if that's desirable)
-import { fetchOneGraph, readDatabase } from './netligraph'
+/**
+ * Handles filtering out the full GraphQL schema to only expose the subset
+ * that's relevant for this specific app. Can be implemented on either Netlify
+ * or OneGraph's side so that it's transparent with regards to performance
+ * and DX
+ */
+
+import { fetchOneGraph } from './netligraph'
 import {
   buildClientSchema,
   getIntrospectionQuery,
   getNamedType,
   printSchema,
   GraphQLSchema,
+  buildASTSchema,
+  parse,
 } from 'graphql'
 import { withGraph } from './NetligraphHandler'
-import { GraphQLFieldConfig } from 'graphql'
 import * as fs from 'fs'
-import { Database } from '../../public/pages/home'
-const { wrapSchema, FilterRootFields } = require('@graphql-tools/wrap')
+import { Database, readDatabase } from '../../lib/netlifyCliDevDatabases'
+import { wrapSchema, FilterRootFields } from '@graphql-tools/wrap'
 
 const builtInEnabled = ['query', 'mutation', 'subscription']
 const forcedRemoveList = ['onegraphemailnode']
@@ -39,16 +46,25 @@ const shouldRetainNamed = (
   return false
 }
 
-async function fetchFullSchema() {
-  const result = await fetchOneGraph({
-    query: getIntrospectionQuery(),
-  })
+const cachedFullSchema = `tmp/cache_full_schema.sdl`
 
-  return result
-}
+export async function fetchFullSchema() {
+  let fullSchema
 
-function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
-  return value !== null && value !== undefined
+  if (fs.existsSync(cachedFullSchema)) {
+    fullSchema = fs.readFileSync(cachedFullSchema).toString()
+    console.debug('Hit cached path for ', cachedFullSchema)
+  } else {
+    console.debug('No cache, refreshing ', cachedFullSchema)
+    const schemaSource = await fetchOneGraph({
+      query: getIntrospectionQuery(),
+    })
+    const originalSchema = buildClientSchema(schemaSource.data)
+    fs.writeFileSync(cachedFullSchema, printSchema(originalSchema))
+    fullSchema = printSchema(originalSchema)
+  }
+
+  return fullSchema
 }
 
 function pruneSchema(
@@ -58,27 +74,24 @@ function pruneSchema(
   const clientSchema = wrapSchema({
     schema: originalSchema,
     transforms: [
-      new FilterRootFields(
-        (
-          operationName: string,
-          fieldName: string,
-          fieldConfig: GraphQLFieldConfig<any, any>
-        ) => {
-          const namedType = getNamedType(fieldConfig.type)
+      new FilterRootFields((operationName, fieldName, fieldConfig) => {
+        const namedType = !!fieldConfig?.type && getNamedType(fieldConfig.type)
 
-          // Include at least one field per root object.
-          // Not necessary for the final version, but fine for the
-          // proof of concept
-          if (['poll', 'testMutate', 'oneGraph'].includes(fieldName)) {
-            return true
-          }
-
-          const include =
-            namedType && shouldRetainNamed(enabledServices, namedType)
-
-          return include
+        // Include at least one field per root object.
+        // Not necessary for the final version, but fine for the
+        // proof of concept
+        if (
+          !!fieldName &&
+          ['poll', 'testMutate', 'oneGraph'].includes(fieldName)
+        ) {
+          return true
         }
-      ),
+
+        const include =
+          namedType && shouldRetainNamed(enabledServices, namedType)
+
+        return include
+      }),
     ],
   })
 
@@ -106,15 +119,16 @@ export const handler = withGraph(async (event, { netligraph }) => {
   const cachedFile = `tmp/cache_schema_${enabledServices.join('_')}.sdl`
 
   let schema: string
+  let fullSchema: string = await fetchFullSchema()
 
   if (fs.existsSync(cachedFile)) {
     schema = fs.readFileSync(cachedFile).toString()
     console.debug('Hit cached path for ', cachedFile)
   } else {
     console.debug('No cache, calculating schema for ', cachedFile)
-    const schemaSource = await fetchFullSchema()
-    const originalSchema = buildClientSchema(schemaSource.data)
+    const originalSchema = buildASTSchema(parse(fullSchema))
     const prunedSchema = pruneSchema(enabledServices, originalSchema)
+    fs.writeFileSync(cachedFullSchema, printSchema(originalSchema))
     fs.writeFileSync(cachedFile, prunedSchema)
     schema = prunedSchema
   }
@@ -122,6 +136,7 @@ export const handler = withGraph(async (event, { netligraph }) => {
   const data = {
     gitHubEnabled: false,
     schema: schema || '',
+    fullSchema: fullSchema || '',
   }
 
   return {

@@ -1,4 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
+import {
+  addLeftWhitespace,
+  // @ts-ignore: No typescript defs
+} from '@sgrove/graphiql-code-exporter/lib/utils/index'
 // @ts-ignore: No typescript defs
 import OneGraphAuth from 'onegraph-auth'
 import {
@@ -11,7 +15,24 @@ import {
   OAuthService,
   fetchIntegrationStatus,
   setIntegrationStatus,
+  fetchSchemas,
+  GraphQLService,
+  fetchCommunityFunctions,
+  graphqlFetcher,
 } from '../../frontendHelpers'
+import { buildASTSchema, parse } from 'graphql'
+import ReactMarkdown from 'react-markdown'
+import { GraphQLSchema } from 'graphql'
+import { formInput } from './GraphQLForm'
+
+export type CommunityFunction = {
+  id: string
+  definition: string
+  description: string
+  name: string
+  variables: Array<[string, string]>
+  services: Array<GraphQLService>
+}
 
 const ONEGRAPH_APP_ID = process.env.ONEGRAPH_APP_ID
 
@@ -19,6 +40,7 @@ export type Database = {
   accessToken: string | null
   manuallyEnabledServices: Array<string>
   loggedInServices: Array<string>
+  installedFunctionIds: Array<string>
 }
 
 const blocklist = new Set([
@@ -42,6 +64,10 @@ type State = {
   database: Database
   services: Array<APIService>
   search: string | null
+  fullSchema: GraphQLSchema | null
+  communityFunctions: Array<CommunityFunction>
+  openServices: Array<string>
+  installedFunctionIds: Array<string>
 }
 
 type OAuthServiceEntryProps = {
@@ -52,6 +78,8 @@ type OAuthServiceEntryProps = {
   enableIntegration: (service: OAuthService) => void
   doLogin: (service: OAuthService) => void
   doLogout: (service: OAuthService) => void
+  hasFunctions: boolean
+  onToggleFunctions: () => void
 }
 const OAuthServiceEntry = ({
   service,
@@ -61,6 +89,8 @@ const OAuthServiceEntry = ({
   doLogin,
   doLogout,
   loggedIn,
+  hasFunctions,
+  onToggleFunctions,
 }: OAuthServiceEntryProps) => {
   return (
     <>
@@ -92,6 +122,33 @@ const OAuthServiceEntry = ({
           ' '
         )}
       </div>
+      {!hasFunctions ? null : (
+        <div className="dropdown" aria-expanded="false" aria-haspopup="listbox">
+          <button
+            role="button"
+            aria-label="Options. Open menu"
+            aria-haspopup="true"
+            data-toggle="true"
+            name="Options"
+            className={'btn btn-default btn-secondary btn-secondary--standard '}
+            type="button"
+            style={{ alignSelf: 'end', marginRight: '6px' }}
+            onClick={onToggleFunctions}
+          >
+            Functions
+            <svg
+              height={12}
+              viewBox="0 0 16 16"
+              width={12}
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              className="tw-transition-transform tw-duration-100 tw-ease-cubic-bezier tw-align-middle tw-inline-block tw--mt-[2px] tw-ml-1"
+            >
+              <path d="M4 4l3.4 3.4c.3.4.9.4 1.2 0L11.9 4 14 6.2l-5.4 5.6c-.3.3-.9.3-1.2 0L2 6.2z" />
+            </svg>
+          </button>
+        </div>
+      )}
       <div>
         {!enabled ? null : (
           <button
@@ -133,12 +190,16 @@ type ServiceEntryProps = {
   enabled: boolean
   disableIntegration: (service: APIService) => void
   enableIntegration: (service: APIService) => void
+  hasFunctions: boolean
+  onToggleFunctions: () => void
 }
 const ServiceEntry = ({
   service,
   enabled,
   disableIntegration,
   enableIntegration,
+  hasFunctions,
+  onToggleFunctions,
 }: ServiceEntryProps) => {
   return (
     <>
@@ -170,6 +231,33 @@ const ServiceEntry = ({
           ' '
         )}
       </div>
+      {!hasFunctions ? null : (
+        <div className="dropdown" aria-expanded="false" aria-haspopup="listbox">
+          <button
+            role="button"
+            aria-label="Options. Open menu"
+            aria-haspopup="true"
+            data-toggle="true"
+            name="Options"
+            className={'btn btn-default btn-secondary btn-secondary--standard '}
+            type="button"
+            style={{ alignSelf: 'end', marginRight: '6px' }}
+            onClick={onToggleFunctions}
+          >
+            Functions
+            <svg
+              height={12}
+              viewBox="0 0 16 16"
+              width={12}
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              className="tw-transition-transform tw-duration-100 tw-ease-cubic-bezier tw-align-middle tw-inline-block tw--mt-[2px] tw-ml-1"
+            >
+              <path d="M4 4l3.4 3.4c.3.4.9.4 1.2 0L11.9 4 14 6.2l-5.4 5.6c-.3.3-.9.3-1.2 0L2 6.2z" />
+            </svg>
+          </button>
+        </div>
+      )}
       <div>
         <button
           className={
@@ -190,6 +278,226 @@ const ServiceEntry = ({
   )
 }
 
+const FunctionPreview = ({
+  communityFunction,
+  schema,
+  onClose,
+  isOpen,
+  isEnabled,
+}: {
+  communityFunction: CommunityFunction
+  schema: GraphQLSchema
+  onClose: () => void
+  isOpen: boolean
+  isEnabled: boolean
+}) => {
+  const [auth, setAuth] = useState<OneGraphAuth>(
+    new OneGraphAuth({
+      appId: ONEGRAPH_APP_ID,
+    })
+  )
+  const [formVariables, setFormVariables] = useState({})
+  const [results, setResults] = useState(null)
+  const operations = parse(communityFunction.definition).definitions
+
+  const operation = operations.find(
+    (operation) => operation.kind === 'OperationDefinition'
+  )
+
+  if (!operation || operation.kind !== 'OperationDefinition') {
+    return null
+  }
+
+  const variables = operation.variableDefinitions || []
+
+  const operationName = operation.name?.value || 'Unknown'
+
+  const base = `const { data, errors } = await  netligraph.functions.${operationName}(netligraph, `
+
+  const usagePreview = `
+${base}
+${addLeftWhitespace(JSON.stringify(formVariables, null, 2), base.length)})`
+
+  const form = variables.map((variable) => {
+    return (
+      <div
+        className="tw-c-form-field tw-mt-3"
+        key={variable.variable.name.value}
+      >
+        <label>
+          <div className="tw-c-form-field-label tw-text-xs tw-text-gray-darker dark:tw-text-gray-lighter tw-cursor-pointer tw-font-normal tw-leading-very-chill">
+            {variable.variable.name.value}
+          </div>
+
+          <div>{formInput(schema, variable, setFormVariables, {})}</div>
+        </label>
+      </div>
+    )
+  })
+
+  if (!isOpen) {
+    return null
+  }
+
+  const submit = async (event: any) => {
+    event.preventDefault()
+    event.stopPropagation()
+    let fetchResults = await graphqlFetcher(auth, {
+      query: communityFunction.definition,
+      operationName: operation.name?.value || undefined,
+      variables: formVariables,
+    })
+
+    setResults(fetchResults)
+  }
+
+  return (
+    <div style={{ display: 'flex' }}>
+      <section className="card card-settings" tabIndex={-1}>
+        <form className="floating-labels">
+          <div className="table-body">{form}</div>
+          <div className="tw-flex tw-flex-wrap tw-actions-flex-gap-2 tw-items-center tw-justify-end md:tw-justify-start tw-w-full md:tw-w-auto tw-mt-4 md:tw-mt-4">
+            <button
+              className="btn btn-default btn-primary btn-primary--standard"
+              onClick={submit}
+            >
+              Run
+            </button>
+            <button
+              className="btn btn-default btn-secondary btn-secondary--standard"
+              type="button"
+              onClick={() => {
+                onClose()
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </form>
+      </section>
+      <div style={{ width: '50%' }}>
+        <div
+          style={{
+            lineHeight: '1.5em',
+            height: '4.5em',
+            fontFamily: 'monospace',
+          }}
+          className="card card-settings"
+        >
+          <div>
+            // {isEnabled ? '' : 'Add this function, then '} copy the code below
+            to use this function in your Netlify function
+          </div>
+          {usagePreview}
+        </div>
+        <div
+          style={{ maxHeight: '300px', overflow: 'scroll', marginTop: '100px' }}
+          className="card card-settings"
+        >
+          <pre>
+            {results
+              ? JSON.stringify(results, null, 2)
+              : 'Run function to see the results'}
+          </pre>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const CommunityFunction = ({
+  communityFunction,
+  installedFunctionIds,
+  manuallyEnabledServices,
+  enableFunction,
+  disableFunction,
+  schema,
+}: {
+  communityFunction: CommunityFunction
+  installedFunctionIds: Array<string>
+  manuallyEnabledServices: Array<string>
+  enableFunction: (id: string) => void
+  disableFunction: (id: string) => void
+  schema: GraphQLSchema
+}) => {
+  const [showPreview, setShowPreview] = useState(false)
+
+  const isEnabled = installedFunctionIds.includes(communityFunction.id)
+
+  return (
+    <>
+      <div className="inline">
+        <div className="media media-figure">
+          {communityFunction.services.map((service) => (
+            <span
+              key={service.service}
+              className="plugin__icon-circle"
+              style={{ marginRight: '-20px', background: 'none' }}
+            >
+              <img
+                className="plugin__icon plugin__icon-circle"
+                style={{ width: '40px', height: '40px' }}
+                // @ts-ignore
+                src={serviceImageUrl(service.slug)}
+              />
+            </span>
+          ))}
+          <div className="plugin__info" style={{ marginLeft: '22px' }}>
+            <h2 className="plugin__name h3">{communityFunction.name}</h2>
+            <span className="plugin__by">
+              by @{communityFunction.id.split('/')[0] || 'unknown'}{' '}
+              <span
+                style={{ color: 'blue', cursor: 'pointer' }}
+                onClick={() => setShowPreview(true)}
+              >
+                Try
+              </span>
+            </span>
+            <div className="plugin__desc">
+              <ReactMarkdown>{communityFunction.description}</ReactMarkdown>
+            </div>
+          </div>
+        </div>
+        <div className="actions">
+          <button
+            className={
+              'btn btn-default btn-primary btn-primary--standard ' +
+              (isEnabled ? 'btn-primary--danger ' : ' ')
+            }
+            onClick={() => {
+              const id = communityFunction.id
+              const missingServices = communityFunction.services.filter(
+                (service) =>
+                  !manuallyEnabledServices.includes(serviceId(service))
+              )
+
+              console.warn(
+                'Potentially prompt to install services: ',
+                missingServices
+              )
+
+              installedFunctionIds.includes(id)
+                ? disableFunction(id)
+                : enableFunction(id)
+            }}
+          >
+            {installedFunctionIds.includes(communityFunction.id)
+              ? 'Remove'
+              : 'Add to context'}
+          </button>
+        </div>
+      </div>
+      <FunctionPreview
+        communityFunction={communityFunction}
+        schema={schema}
+        onClose={() => setShowPreview(false)}
+        isOpen={showPreview}
+        isEnabled={isEnabled}
+      />
+    </>
+  )
+}
+
 export default function Home() {
   const [token, setToken] = useState('')
   const [auth, setAuth] = useState<OneGraphAuth>(
@@ -204,9 +512,38 @@ export default function Home() {
       loggedInServices: [],
       accessToken: null,
       manuallyEnabledServices: [],
+      installedFunctionIds: [],
     },
     search: null,
+    fullSchema: null,
+    communityFunctions: [],
+    openServices: ['github'],
+    installedFunctionIds: [],
   })
+
+  React.useEffect(() => {
+    let fullSchema
+    fetchSchemas()
+      .then((result) => {
+        if (!result.schema) {
+          return
+        }
+
+        const sdlSchema = buildASTSchema(parse(result.fullSchema))
+
+        fullSchema = sdlSchema
+
+        setState((oldState) => ({ ...oldState, fullSchema: sdlSchema }))
+
+        return fetchCommunityFunctions(fullSchema)
+      })
+      .then((functions) => {
+        setState((oldState) => ({
+          ...oldState,
+          communityFunctions: functions || [],
+        }))
+      })
+  }, [])
 
   useEffect(() => {
     if (!auth) {
@@ -304,6 +641,39 @@ export default function Home() {
     setState((oldState) => ({ ...oldState, database: serverDatabase }))
   }
 
+  const enableFunction = async (communityFunctionId: string) => {
+    const installedFunctionIds = [
+      ...(state.database.installedFunctionIds || []),
+      communityFunctionId,
+    ].filter((v, i, a) => a.indexOf(v) === i)
+
+    const newDatabase: Database = {
+      ...state.database,
+      installedFunctionIds,
+    }
+    const serverDatabase = await setIntegrationStatus(newDatabase)
+    setState((oldState) => ({ ...oldState, database: serverDatabase }))
+  }
+
+  const disableFunction = async (communityFunctionId: string) => {
+    const installedFunctionIds = (
+      state.database.installedFunctionIds || []
+    ).filter((v) => communityFunctionId !== v)
+
+    const newDatabase: Database = {
+      ...state.database,
+      installedFunctionIds,
+    }
+    const serverDatabase = await setIntegrationStatus(newDatabase)
+    setState((oldState) => ({ ...oldState, database: serverDatabase }))
+  }
+
+  const communityFunctionsByService = (service: string) => {
+    return state.communityFunctions.filter((fn) =>
+      fn.services.map((service) => service.simpleSlug).includes(service)
+    )
+  }
+
   return (
     <>
       <input
@@ -343,25 +713,95 @@ export default function Home() {
               serviceId(service)
             )
 
+            const communityFunctions = communityFunctionsByService(
+              serviceId(service)
+            )
+
+            const onToggleFunctions = () => {
+              setState((oldState) => {
+                const isOpen = oldState.openServices.includes(
+                  serviceId(service)
+                )
+
+                const openServices = isOpen
+                  ? oldState.openServices.filter(
+                      (id) => id !== serviceId(service)
+                    )
+                  : [...oldState.openServices, serviceId(service)]
+
+                return {
+                  ...oldState,
+                  openServices,
+                }
+              })
+            }
+
             return (
-              <li key={serviceId(service)} style={{ display: 'flex' }}>
-                {service.supportsOAuth ? (
-                  <OAuthServiceEntry
-                    service={service}
-                    enabled={enabled}
-                    disableIntegration={disableIntegration}
-                    enableIntegration={enableIntegration}
-                    loggedIn={loggedIn}
-                    doLogin={doLogin}
-                    doLogout={doLogout}
-                  />
-                ) : (
-                  <ServiceEntry
-                    service={service}
-                    enabled={enabled}
-                    disableIntegration={disableIntegration}
-                    enableIntegration={enableIntegration}
-                  />
+              <li
+                key={serviceId(service)}
+                style={{ display: 'flex', flexDirection: 'column' }}
+              >
+                <div style={{ display: 'flex', flexGrow: 1 }}>
+                  {service.supportsOAuth ? (
+                    <OAuthServiceEntry
+                      service={service}
+                      enabled={enabled}
+                      disableIntegration={disableIntegration}
+                      enableIntegration={enableIntegration}
+                      loggedIn={loggedIn}
+                      doLogin={doLogin}
+                      doLogout={doLogout}
+                      hasFunctions={communityFunctions.length > 0}
+                      onToggleFunctions={onToggleFunctions}
+                    />
+                  ) : (
+                    <ServiceEntry
+                      service={service}
+                      enabled={enabled}
+                      disableIntegration={disableIntegration}
+                      enableIntegration={enableIntegration}
+                      hasFunctions={communityFunctions.length > 0}
+                      onToggleFunctions={onToggleFunctions}
+                    />
+                  )}
+                </div>
+
+                {!state.openServices.includes(serviceId(service)) ||
+                communityFunctions.length === 0 ? null : (
+                  <ul style={{ borderRadius: '6px', backgroundColor: 'white' }}>
+                    {!!state.fullSchema
+                      ? communityFunctions.map((communityFunction) => {
+                          return (
+                            <li
+                              key={communityFunction.id}
+                              className="plugin__row"
+                              style={{
+                                margin: '16px',
+                                borderTop: '2px solid #ddd',
+                                padding: '6px',
+                                borderRadius: '2px',
+                                display: 'unset',
+                              }}
+                            >
+                              <CommunityFunction
+                                key={communityFunction.name}
+                                communityFunction={communityFunction}
+                                installedFunctionIds={
+                                  state.database.installedFunctionIds
+                                }
+                                manuallyEnabledServices={
+                                  state.database.manuallyEnabledServices
+                                }
+                                enableFunction={enableFunction}
+                                disableFunction={disableFunction}
+                                //@ts-ignore
+                                schema={state.fullSchema}
+                              />
+                            </li>
+                          )
+                        })
+                      : null}
+                  </ul>
                 )}
               </li>
             )

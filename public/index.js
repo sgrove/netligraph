@@ -23,7 +23,10 @@ window.demoAuthReload = () => {
 
 function App() {
   const [state, setState] = useState(() => {
-    return { view: 'catalog' }
+    return {
+      view: 'catalog',
+      fullSchema: null,
+    }
   })
 
   return (

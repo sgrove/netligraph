@@ -1,41 +1,21 @@
 import { withGraph } from './NetligraphHandler'
-import { Database, Netligraph, readDatabase, writeDatabase } from './netligraph'
+import { checkServices } from './netligraph'
+import {
+  generateTypeScriptClient,
+  writeTypeScriptClient,
+} from './typeScriptClientHelper'
+import {
+  Database,
+  readCommunityFunctionsDatabase,
+  writeDatabase,
+} from '../../lib/netlifyCliDevDatabases'
 
-const FindEnabledServicesQuery = `query FindEnabledServicesQuery {
-  me {
-    serviceMetadata {
-      loggedInServices {
-        friendlyServiceName
-        service
-        isLoggedIn
-        bearerToken
-      }
-    }
-  }
-}`
-
-const findEnabledServicesQuery = (client: Netligraph) => {
-  return client?.graph?.send({
-    query: FindEnabledServicesQuery,
-    operationName: 'FindEnabledServicesQuery',
-    accessToken: client.accessToken,
-  })
-}
-
-export const handler = withGraph(async (event, { netligraph }) => {
-  if (!netligraph) {
-    return {
-      statusCode: 400,
-      body: 'Please enable the your integrations',
-    }
-  }
+export const handler = withGraph(async (event) => {
   const body = JSON.parse(event.body || '{}')
 
   const accessToken = body.accessToken
 
-  const client: Netligraph = { ...netligraph, accessToken: accessToken }
-
-  const result = await findEnabledServicesQuery(client)
+  const result = await checkServices({ accessToken: accessToken })
 
   const loggedInServices: Array<string> =
     result?.data?.me?.serviceMetadata?.loggedInServices?.map(
@@ -49,7 +29,7 @@ export const handler = withGraph(async (event, { netligraph }) => {
     ])
   )
 
-  if ((result?.errors?.length || 0) > 0) {
+  if ((result?.errors || []).length > 0) {
     return {
       statusCode: 500,
       body: JSON.stringify(result?.errors),
@@ -64,13 +44,32 @@ export const handler = withGraph(async (event, { netligraph }) => {
     loggedInServices: loggedInServices,
     manuallyEnabledServices: body.manuallyEnabledServices || [],
     serviceBearerTokens: serviceBearerTokens,
+    installedFunctionIds: body.installedFunctionIds,
   }
 
   writeDatabase(database)
 
+  /* Generate the TypeScript file with the enabled functions */
+  const communityFunctions = readCommunityFunctionsDatabase()
+
+  /**
+   * Regenerate the local `netligraph.functions` library (with
+   * types and docstrings)
+   */
+  const typeScriptClientSource = await generateTypeScriptClient(
+    body.installedFunctionIds
+  )
+
+  writeTypeScriptClient(typeScriptClientSource)
+
   return {
     statusCode: 200,
-    body: JSON.stringify({ ...database, serviceBearerTokens: undefined }),
+    body: JSON.stringify({
+      ...database,
+      /* Remove `serviceBearerTokens` from the response, we never
+      need to expose them to the client */
+      serviceBearerTokens: undefined,
+    }),
     headers: {
       'content-type': 'application/json',
     },

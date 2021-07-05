@@ -1,7 +1,11 @@
 import { withGraph } from './NetligraphHandler'
 const fetch = require('node-fetch')
-const path = require('path')
 
+/**
+ * The netlify site `/graph` path is sent here (via netlify.toml)
+ * This proxies GraphQL requests to OneGraph to white-label
+ * it for Netlify users
+ */
 export const handler = withGraph(async (event) => {
   const payload = JSON.parse(
     JSON.stringify({

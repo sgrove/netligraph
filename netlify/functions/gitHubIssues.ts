@@ -1,15 +1,6 @@
 import { withGraph } from './NetligraphHandler'
 
 export const handler = withGraph(async (event, { netligraph }) => {
-  if (!netligraph?.gitHub.enabled) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        error: 'Please enable the GitHub netligraph',
-      }),
-    }
-  }
-
   const owner = event.queryStringParameters?.owner
   const name = event.queryStringParameters?.name
   const count = event.queryStringParameters?.count
@@ -24,12 +15,21 @@ export const handler = withGraph(async (event, { netligraph }) => {
     }
   }
 
-  // We're using the netligraph API client, so we auth is already bundled
-  const { data } = await netligraph.gitHub.fetchRepositoryIssues(netligraph, {
+  if (!netligraph.gitHub.enabled) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        error: 'Please enable the GitHub netligraph',
+      }),
+    }
+  }
+
+  // We're using the netligraph API client, so the auth is already bundled
+  const { data } = await netligraph.functions.ListIssues({
     owner,
     name,
-    first: !!count ? parseInt(count) : undefined,
-    after: cursor,
+    first: !!count ? parseInt(count) : 100,
+    after: cursor || '',
   })
 
   return {

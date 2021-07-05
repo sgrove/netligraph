@@ -5,10 +5,12 @@ import {
   HandlerResponse,
   HandlerEvent,
 } from '@netlify/functions'
-import { Database, makeClient, Netligraph, readDatabase } from './netligraph'
+import { makeClient, makeDummyClient } from './netligraph'
+import * as Netligraph from './netligraph'
+import { Database, readDatabase } from '../../lib/netlifyCliDevDatabases'
 
 interface Context extends HandlerContext {
-  netligraph?: Netligraph
+  netligraph: Netligraph.NetligraphLibrary
 }
 
 interface Handler {
@@ -19,16 +21,18 @@ interface Handler {
 }
 
 export function withGraph(handler: Handler): NetlifyHandler {
+  let netligraph: Netligraph.NetligraphLibrary
+
   if (!process.env.ONEGRAPH_APP_ID) {
-    return handler
+    netligraph = makeDummyClient()
+  } else {
+    const database: Database = readDatabase()
+
+    netligraph = makeClient({
+      appId: process.env.ONEGRAPH_APP_ID,
+      accessToken: database.accessToken || null,
+    })
   }
-
-  const database: Database = readDatabase()
-
-  const netligraph = makeClient({
-    appId: process.env.ONEGRAPH_APP_ID,
-    accessToken: database.accessToken || null,
-  })
 
   return (event, context, callback) =>
     handler(event, { ...context, netligraph }, callback)

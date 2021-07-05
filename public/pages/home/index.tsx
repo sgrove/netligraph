@@ -314,7 +314,7 @@ const FunctionPreview = ({
 
   const operationName = operation.name?.value || 'Unknown'
 
-  const base = `const { data, errors } = await  netligraph.functions.${operationName}(netligraph, `
+  const base = `const { data, errors } = await  netligraph.functions.${operationName}(`
 
   const usagePreview = `
 ${base}

@@ -112,7 +112,7 @@ function App() {
                         aria-label="Sean Grove's team. Open menu"
                         aria-haspopup="true"
                         data-toggle="true"
-                        name="Sean Grove's team"
+                        name="netlify dev Dashboard"
                         className="
                       btn btn-default btn-secondary btn-secondary--standard
                       tw-text-xl
@@ -132,7 +132,7 @@ function App() {
                     "
                         type="button"
                       >
-                        Sean Grove's team
+                        netlify-dev Dashboard
                         <svg
                           height={12}
                           viewBox="0 0 16 16"

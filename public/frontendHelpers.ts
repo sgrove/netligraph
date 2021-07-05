@@ -26,7 +26,6 @@ function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
 export const makeAuth = ({ appId }: { appId: string | undefined }) => {
   return new OneGraphAuth({
     appId: appId,
-    // oneGraphOrigin: window.location.href,
     graphqlUrl: `${window.location.protocol}//${window.location.host}/graph`,
   })
 }

@@ -27,7 +27,7 @@ import {
 import { OperationDefinitionNode } from 'graphql'
 import { SerializedCommunityFunction } from '../../../lib/netlifyCliDevDatabases'
 
-const DEFAULT_QUERY_ = `# shift-option/alt-click on a query below to jump to it in the explorer
+const DEFAULT_QUERY = `# shift-option/alt-click on a query below to jump to it in the explorer
 # option/alt-click on a field in the explorer to select all subfields
 
 # Be sure to enable the npm and GitHub integrations for this query
@@ -40,22 +40,6 @@ query AsanaProjects($name: String!) {
     }
   }
 }`
-
-const DEFAULT_QUERY = `subscription IncomingGitHubComment($repoOwner: String!, $repoName: String!) {
-  github {
-    issueCommentEvent(input: {repoOwner: $repoOwner, repoName: $repoName}) {
-      action
-      comment {
-        id
-        body
-      }
-    }
-  }
-}
-`
-
-//@ts-ignore
-window.testQuery = DEFAULT_QUERY
 
 type GraphiQLState = {
   explorerIsOpen: boolean

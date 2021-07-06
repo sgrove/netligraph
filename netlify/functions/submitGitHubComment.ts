@@ -1,17 +1,16 @@
 /**
  * Shows how to send arbitrary GraphQL queries for those
- * who are comfortable with this level of power.
- */
+ * who are comfortable with this level of power.*/
 import { NetligraphLibrary } from '../../lib/netligraph'
 import { withGraph } from './NetligraphHandler'
 
-function executeSubmitComment(
+export function executeSubmitGitHubComment(
   netligraph: NetligraphLibrary,
   { body }: { body: string }
 ) {
   return netligraph.graph.send({
     query: `
-      mutation submitComment($body: String!) {
+      mutation submitGitHubComment($body: String!) {
         gitHub {
           addComment(input: {subjectId: "MDU6SXNzdWU4NDk1Mjc0NDg=", body: $body}) {
             clientMutationId
@@ -25,7 +24,7 @@ function executeSubmitComment(
           }
         }
       }`,
-    operationName: 'submitComment',
+    operationName: 'submitGitHubComment',
     variables: { body: body },
     accessToken: netligraph.accessToken,
   })
@@ -36,28 +35,28 @@ export const handler = withGraph(async (event, { netligraph }) => {
 
   const body = eventBodyJson?.body
 
-  if (!body) {
+  if (body === undefined || body === null) {
     return {
       statusCode: 422,
       body: JSON.stringify({ error: 'You must supply parameters for: `body`' }),
     }
   }
 
-  const { errors: submitCommentErrors, data: submitCommentData } =
-    await executeSubmitComment(netligraph, { body })
+  const { errors: submitGitHubCommentErrors, data: submitGitHubCommentData } =
+    await executeSubmitGitHubComment(netligraph, { body })
 
-  if (submitCommentErrors) {
-    console.error(submitCommentErrors)
+  if (submitGitHubCommentErrors) {
+    console.error(JSON.stringify(submitGitHubCommentErrors, null, 2))
   }
 
-  console.log(submitCommentData)
+  console.log(JSON.stringify(submitGitHubCommentData, null, 2))
 
   return {
     statusCode: 200,
     body: JSON.stringify({
       success: true,
-      submitCommentErrors: submitCommentErrors,
-      submitCommentData: submitCommentData,
+      submitGitHubCommentErrors: submitGitHubCommentErrors,
+      submitGitHubCommentData: submitGitHubCommentData,
     }),
     headers: {
       'content-type': 'application/json',
@@ -68,13 +67,13 @@ export const handler = withGraph(async (event, { netligraph }) => {
 /**
  * Client-side invocations:
  * Call your Netlify function from the browser (after saving
- * the code to `submitComment.js`) with these helpers:
+ * the code to `submitGitHubComment.js`) with these helpers:
  */
 
 /**
-async function executeSubmitComment(params) {
+async function executeSubmitGitHubComment(params) {
   const {body} = params || {};
-  const resp = await fetch("/.netlify/functions/submitComment",
+  const resp = await fetch("/.netlify/functions/submitGitHubComment",
     {
       method: "POST",
       body: JSON.stringify({"body": body})
